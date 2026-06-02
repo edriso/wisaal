@@ -7,9 +7,10 @@ export function getByTelegramId(telegramId: bigint) {
 
 /**
  * Make sure a user row exists for this Telegram user, creating it with the
- * default settings (22:00–08:00 quiet) on their first message. Also clears
- * `blocked`, because the user messaging the bot is proof we can reach them
- * again. (Cadence is per relative now — see Person.cadenceDays.)
+ * default settings (22:00–08:00 quiet, weekly default cadence) on their first
+ * message. Also clears `blocked`, because the user messaging the bot is proof
+ * we can reach them again. (Cadence is per relative — see Person.cadenceDays;
+ * defaultCadenceDays is only the starting value a new relative inherits.)
  *
  * Uses an upsert so two messages arriving at once from a brand-new user can
  * never race into a duplicate-key error. Returns the user row.
@@ -38,6 +39,7 @@ export async function getOrCreateUser(telegramId: bigint, timezone?: string) {
 
 /** Settings the user can change. All optional; only the given ones are written. */
 export interface UserSettings {
+  defaultCadenceDays?: number;
   quietStartHour?: number;
   quietEndHour?: number;
   timezone?: string;

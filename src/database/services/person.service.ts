@@ -15,13 +15,24 @@ export type RotationPerson = Awaited<ReturnType<typeof listPeople>>[number];
 /**
  * Add a relative to the user's circle. The relation label (e.g. "خالتي") is
  * optional. A brand-new person has lastContactedAt null, so the fair rotation
- * (src/core/rotation.ts) always reaches them before anyone already contacted,
- * and cadenceDays takes the schema default (a gentle weekly) until the user
- * tunes it from /list.
+ * (src/core/rotation.ts) always reaches them before anyone already contacted.
+ * `cadenceDays` is the starting reminder cadence (the caller passes the user's
+ * defaultCadenceDays); omitted, it falls back to the schema default (weekly).
+ * Either way it is tunable per person from /list.
  */
-export function addPerson(userId: number, name: string, relation?: string | null) {
+export function addPerson(
+  userId: number,
+  name: string,
+  relation?: string | null,
+  cadenceDays?: number,
+) {
   return prisma.person.create({
-    data: { userId, name, relation: relation ?? null },
+    data: {
+      userId,
+      name,
+      relation: relation ?? null,
+      ...(cadenceDays != null ? { cadenceDays } : {}),
+    },
   });
 }
 

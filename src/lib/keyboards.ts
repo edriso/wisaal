@@ -36,6 +36,10 @@ export const PAGE_SIZE = 8;
 // inside Telegram's 64-byte limit.
 export const PERSON_CADENCE_PREFIX = 'tw:pcad:';
 export const PERSON_CADENCE_SET_PREFIX = 'tw:pcadset:';
+// The per-user DEFAULT cadence picker, opened from /settings. Opening is
+// "tw:dcad:open"; choosing an option is "tw:dcad:7". It sets the starting
+// cadence new relatives inherit; existing relatives are unaffected.
+export const DEFAULT_CADENCE_PREFIX = 'tw:dcad:';
 // The cadence options offered, in whole days: daily, every 3 days, weekly,
 // fortnightly, monthly. Weekly is the default for a new relative.
 export const CADENCE_OPTIONS = [1, 3, 7, 14, 30] as const;
@@ -156,6 +160,20 @@ export function buildPersonCadenceKeyboard(personId: number, current: number): I
   return kb;
 }
 
+/**
+ * The per-user default-cadence picker, opened from /settings. One button per
+ * option (the current default is marked); choosing one sets the cadence new
+ * relatives will inherit. `current` is the user's defaultCadenceDays.
+ */
+export function buildDefaultCadenceKeyboard(current: number): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  for (const days of CADENCE_OPTIONS) {
+    const label = days === current ? `✅ ${cadenceSummaryAr(days)}` : cadenceSummaryAr(days);
+    kb.text(label, `${DEFAULT_CADENCE_PREFIX}${days}`).row();
+  }
+  return kb;
+}
+
 /** The quiet-hours picker. */
 export function buildQuietKeyboard(): InlineKeyboard {
   const kb = new InlineKeyboard();
@@ -165,10 +183,13 @@ export function buildQuietKeyboard(): InlineKeyboard {
   return kb;
 }
 
-/** The small keyboard under /settings: quiet hours and pause/resume. (Cadence
- *  is per relative now — tuned from each person's card in /list.) */
+/** The small keyboard under /settings: default cadence for new relatives, quiet
+ *  hours, and pause/resume. (Each relative's own cadence is tuned from their
+ *  card in /list.) */
 export function buildSettingsKeyboard(paused: boolean): InlineKeyboard {
   return new InlineKeyboard()
+    .text(COPY.settingsDefaultCadenceBtn, `${DEFAULT_CADENCE_PREFIX}open`)
+    .row()
     .text(COPY.settingsQuietBtn, `${QUIET_PREFIX}open`)
     .row()
     .text(paused ? COPY.resumeBtn : COPY.pauseBtn, PAUSE_TOGGLE);

@@ -37,6 +37,7 @@ import {
   buildPersonDetailKeyboard,
   buildBackToListKeyboard,
   buildPersonCadenceKeyboard,
+  buildDefaultCadenceKeyboard,
   buildQuietKeyboard,
   buildSettingsKeyboard,
   buildShukrKeyboard,
@@ -51,6 +52,7 @@ import {
   PERSON_CONTACTED_PREFIX,
   PERSON_CADENCE_PREFIX,
   PERSON_CADENCE_SET_PREFIX,
+  DEFAULT_CADENCE_PREFIX,
   PAGE_SIZE,
   CADENCE_OPTIONS,
   QUIET_PREFIX,
@@ -188,7 +190,7 @@ bot.command('add', async (ctx) => {
     await ctx.reply(COPY.addEmpty);
     return;
   }
-  await addPerson(user.id, parsed.name, parsed.relation);
+  await addPerson(user.id, parsed.name, parsed.relation, user.defaultCadenceDays);
   await ctx.reply(COPY.addedOne(personLabel(parsed.name, parsed.relation)));
 });
 
@@ -511,6 +513,39 @@ bot.callbackQuery(new RegExp(`^${PERSON_CADENCE_SET_PREFIX}(\\d+):(\\d+)$`), asy
   await ctx.answerCallbackQuery({ text: cadenceSummaryAr(days) });
 });
 
+// ─── Default-cadence buttons (the /settings starting cadence for new people) ──
+
+// Open the default-cadence picker from /settings, marking the current default.
+bot.callbackQuery(`${DEFAULT_CADENCE_PREFIX}open`, async (ctx) => {
+  const user = await userFor(ctx);
+  if (!user) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  await ctx.reply(COPY.defaultCadencePrompt, {
+    reply_markup: buildDefaultCadenceKeyboard(user.defaultCadenceDays),
+  });
+  await ctx.answerCallbackQuery();
+});
+
+// Set the default cadence new relatives will inherit (existing ones untouched).
+bot.callbackQuery(new RegExp(`^${DEFAULT_CADENCE_PREFIX}(\\d+)$`), async (ctx) => {
+  const user = await userFor(ctx);
+  if (!user) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  const days = Number(ctx.match![1]);
+  if (!(CADENCE_OPTIONS as readonly number[]).includes(days)) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  await updateSettings(user.id, { defaultCadenceDays: days });
+  await ctx.editMessageReplyMarkup().catch(ignoreNotModified);
+  await ctx.reply(COPY.defaultCadenceUpdated(cadenceSummaryAr(days)));
+  await ctx.answerCallbackQuery();
+});
+
 // ─── Quiet-hours buttons ─────────────────────────────────────────────
 
 bot.callbackQuery(`${QUIET_PREFIX}open`, async (ctx) => {
@@ -627,7 +662,7 @@ bot.on('message:text', async (ctx) => {
       await ctx.reply(COPY.addEmpty);
       return;
     }
-    await addPerson(user.id, parsed.name, parsed.relation);
+    await addPerson(user.id, parsed.name, parsed.relation, user.defaultCadenceDays);
     await ctx.reply(COPY.addedOne(personLabel(parsed.name, parsed.relation)));
     return;
   }
@@ -682,7 +717,7 @@ async function setBotProfile() {
     { command: 'add', description: 'إضافة شخص إلى دائرتك' },
     { command: 'list', description: 'دائرتك — تسجيل التواصل وضبط إيقاع كل قريب' },
     { command: 'remove', description: 'إزالة شخص من دائرتك' },
-    { command: 'settings', description: 'ضبط ساعات الهدوء' },
+    { command: 'settings', description: 'تذكير الأقارب الجدد وساعات الهدوء' },
     { command: 'pause', description: 'إيقاف التذكيرات مؤقتًا' },
     { command: 'resume', description: 'استئناف التذكيرات' },
     { command: 'shukr', description: 'تدوين لحظة امتنان' },

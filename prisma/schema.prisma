@@ -30,6 +30,11 @@ model User {
   // quiet-hours window and the per-cycle idempotency date key.
   timezone   String @default("Africa/Cairo") @db.VarChar(64)
 
+  // The reminder cadence (whole days) applied to a NEWLY added relative. Each
+  // relative then carries their own Person.cadenceDays, tunable per person from
+  // /list; this is just the starting value for new additions. 7 = weekly.
+  defaultCadenceDays Int @default(7) @map("default_cadence_days")
+
   // The quiet window, in the user's LOCAL hour (0-23). No nudge is sent while
   // the local clock is inside it. The window may wrap past midnight: with
   // start 22 and end 8 the quiet time runs 22:00 → 08:00. See

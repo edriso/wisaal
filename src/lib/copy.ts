@@ -110,6 +110,7 @@ export function nudgeMessage(personDisplay: string, reminder: Reminder): string 
  * /settings. Cadence, quiet window, and timezone, each on its own line.
  */
 export function settingsSummary(user: {
+  defaultCadenceDays: number;
   quietStartHour: number;
   quietEndHour: number;
   timezone: string;
@@ -117,10 +118,10 @@ export function settingsSummary(user: {
 }): string {
   const lines = [
     COPY.settingsHeader,
+    // The default new relatives inherit; each one is then tunable from /list.
+    `• تذكير الأقارب الجدد: ${cadenceSummaryAr(user.defaultCadenceDays)} (ويُضبط لكل قريب من ${ltr('/list')})`,
     `• ${quietWindowAr(user.quietStartHour, user.quietEndHour)}`,
     `• المنطقة الزمنية: ${ltr(user.timezone)}`,
-    // Cadence is per relative — point the user to where it lives.
-    `• إيقاع التذكير لكل قريب يُضبط من ${ltr('/list')}`,
   ];
   if (user.paused) lines.push('• الحالة: التذكيرات متوقفة مؤقتًا ⏸️');
   return lines.join('\n');
@@ -210,8 +211,14 @@ export const COPY = {
   personCadenceUpdated: (display: string, summary: string) =>
     `تمام، سنذكّرك بصلة ${display} ${summary} 🤍`,
 
-  // ─── Settings: quiet hours, timezone, pause ──────────────────────────
+  // ─── Settings: default cadence, quiet hours, timezone, pause ─────────
   settingsHeader: 'إعداداتك الحالية:',
+  settingsDefaultCadenceBtn: '⏱️ تذكير الأقارب الجدد',
+  // The default-cadence picker, opened from /settings. Sets the starting
+  // cadence new relatives inherit; existing ones keep their own.
+  defaultCadencePrompt:
+    'كل كم تحب أن نذكّرك بالأقارب الذين تضيفهم لاحقًا؟\n\n(لن يتغيّر إعداد من أضفتهم سابقًا — كل قريب يُضبط من قائمته في /list.)',
+  defaultCadenceUpdated: (summary: string) => `تمام، سنذكّرك بالأقارب الجدد ${summary} 🤍`,
   settingsQuietBtn: '🌙 ساعات الهدوء',
   quietPrompt: 'في أي ساعات تحب ألّا تصلك التذكيرات؟',
   quietUpdated: (window: string) => `تم ضبط ${window} ✅`,
@@ -265,7 +272,7 @@ export const COPY = {
     `${ltr('/list')} — تصفّح دائرتك (مرتّبة حسب الأحوج لصلتك)، وسجّل تواصلك واضبط كل كم نذكّرك بكل قريب`,
     `${ltr('/remove')} — إزالة شخص من دائرتك`,
     `${ltr('/now')} — تذكير فوري بمن يأتي دوره`,
-    `${ltr('/settings')} — ضبط ساعات الهدوء`,
+    `${ltr('/settings')} — ضبط تذكير الأقارب الجدد وساعات الهدوء`,
     `${ltr('/pause')} — إيقاف التذكيرات، و ${ltr('/resume')} للعودة`,
     `${ltr('/shukr')} — تدوين لحظة امتنان (اختياري)`,
     `${ltr('/forget')} — محو كل بياناتك`,

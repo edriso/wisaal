@@ -65,7 +65,7 @@ const USER = {
   id: 1,
   telegramId: 555n,
   timezone: 'Africa/Cairo',
-  cadenceDays: 3,
+  defaultCadenceDays: 7,
   quietStartHour: 22,
   quietEndHour: 8,
   snoozeUntil: null,
@@ -228,10 +228,11 @@ describe('nudge action: «تخطّي»', () => {
 });
 
 describe('/add', () => {
-  it('adds the parsed person exactly once', async () => {
+  it('adds the parsed person once, inheriting the user’s default cadence', async () => {
     await bot.handleUpdate(textUpdate('/add خالتي فاطمة'));
     expect(h.addPerson).toHaveBeenCalledTimes(1);
-    expect(h.addPerson).toHaveBeenCalledWith(1, 'فاطمة', 'خالتي');
+    // The 4th arg is the user's defaultCadenceDays (7 in the fixture).
+    expect(h.addPerson).toHaveBeenCalledWith(1, 'فاطمة', 'خالتي', 7);
   });
 });
 
@@ -405,6 +406,34 @@ describe('/list interactive browser', () => {
     await bot.handleUpdate(callbackUpdate('tw:rm:2'));
     expect(h.removePerson).toHaveBeenCalledTimes(1);
     expect(h.removePerson).toHaveBeenCalledWith(1, 2);
+    expect(answers().length).toBe(1);
+  });
+});
+
+describe('/settings default cadence', () => {
+  it('opens the default-cadence picker, marking the current default', async () => {
+    await bot.handleUpdate(callbackUpdate('tw:dcad:open'));
+    // The reply carries one button per option (set via tw:dcad:<days>).
+    expect(lastKeyboardData()).toEqual([
+      'tw:dcad:1',
+      'tw:dcad:3',
+      'tw:dcad:7',
+      'tw:dcad:14',
+      'tw:dcad:30',
+    ]);
+    expect(answers().length).toBe(1);
+  });
+
+  it('sets the default cadence once for new relatives', async () => {
+    await bot.handleUpdate(callbackUpdate('tw:dcad:30'));
+    expect(h.updateSettings).toHaveBeenCalledTimes(1);
+    expect(h.updateSettings).toHaveBeenCalledWith(1, { defaultCadenceDays: 30 });
+    expect(answers().length).toBe(1);
+  });
+
+  it('ignores an out-of-range default value without writing', async () => {
+    await bot.handleUpdate(callbackUpdate('tw:dcad:99'));
+    expect(h.updateSettings).not.toHaveBeenCalled();
     expect(answers().length).toBe(1);
   });
 });

@@ -9,8 +9,10 @@ Wisaal is a Telegram bot for **صلة الرحم** (keeping ties with relatives)
 each user it keeps a private circle of relatives and, outside their quiet hours,
 nudges them to reach out to ONE relative at a time — rotating fairly so no one is
 forgotten — with a warm, authentic encouragement. Each relative has their OWN
-cadence (how often to be reminded about them, default weekly), so a user can keep
-in closer touch with some than others. Arabic-only (modern standard Arabic, the
+cadence (how often to be reminded about them), so a user can keep in closer touch
+with some than others. A new relative inherits the user's default cadence
+(`User.defaultCadenceDays`, weekly out of the box, settable in `/settings`) and
+is then tunable per person from `/list`. Arabic-only (modern standard Arabic, the
 same warm voice as the `ayah` and `tilawah` bots, NOT dialect).
 
 It is one small TypeScript project, everything under `src/`:

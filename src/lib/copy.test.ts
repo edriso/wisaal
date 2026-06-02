@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { nudgeMessage, personLabel, cadenceSummaryAr, COPY } from './copy';
+import { nudgeMessage, personLabel, cadenceSummaryAr, settingsSummary, COPY } from './copy';
 import type { Reminder } from '../database/reference/reminders';
 
 const withSource: Reminder = { text: 'متن التذكير.', source: 'البخاري ٠' };
@@ -51,6 +51,27 @@ describe('nudgeMessage', () => {
   it('stays plain text well under Telegram’s limit', () => {
     const msg = nudgeMessage('أخي', withSource);
     expect(msg.length).toBeLessThanOrEqual(4096);
+  });
+});
+
+describe('settingsSummary', () => {
+  const base = {
+    defaultCadenceDays: 30,
+    quietStartHour: 22,
+    quietEndHour: 8,
+    timezone: 'Africa/Cairo',
+    paused: false,
+  };
+
+  it('shows the default cadence new relatives inherit', () => {
+    const summary = settingsSummary(base);
+    expect(summary).toContain('كل شهر'); // 30 days = monthly
+    expect(summary).toContain('/list'); // points at where each relative is tuned
+  });
+
+  it('notes a paused state only when paused', () => {
+    expect(settingsSummary(base)).not.toContain('متوقفة');
+    expect(settingsSummary({ ...base, paused: true })).toContain('متوقفة');
   });
 });
 
