@@ -1,9 +1,9 @@
 {
-  "name": "tawasul",
+  "name": "wisaal",
   "version": "1.0.0",
   "private": true,
   "license": "0BSD",
-  "description": "Tawasul: a Telegram bot for صلة الرحم — it gently nudges you, on your chosen rhythm, to reach out to one relative at a time, rotating fairly through your circle.",
+  "description": "Wisaal: a Telegram bot for صلة الرحم — it gently nudges you, on your chosen rhythm, to reach out to one relative at a time, rotating fairly through your circle.",
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "engines": {

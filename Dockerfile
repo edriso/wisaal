@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Image for the Tawasul Telegram bot. It runs from TypeScript source with tsx
+# Image for the Wisaal Telegram bot. It runs from TypeScript source with tsx
 # (no separate compile step), which keeps the setup simple.
 #
 # Migrations and seeding are NOT run here. Run them once per environment as

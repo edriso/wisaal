@@ -62,10 +62,10 @@ const adapter = new PrismaMariaDb(
 // dev-watch reload reuses the same pool instead of leaking a new one each
 // time the module is re-imported.
 const globalForPrisma = globalThis as unknown as {
-  __tawasulPrisma?: PrismaClient;
+  __wisaalPrisma?: PrismaClient;
 };
 
 export const prisma =
-  globalForPrisma.__tawasulPrisma ?? new PrismaClient({ adapter, log: [...logLevels] });
+  globalForPrisma.__wisaalPrisma ?? new PrismaClient({ adapter, log: [...logLevels] });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.__tawasulPrisma = prisma;
+if (process.env.NODE_ENV !== 'production') globalForPrisma.__wisaalPrisma = prisma;

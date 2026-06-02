@@ -85,8 +85,8 @@ beforeAll(() => {
   bot.botInfo = {
     id: 1,
     is_bot: true,
-    first_name: 'tawasul',
-    username: 'tawasul_bot',
+    first_name: 'wisaal',
+    username: 'wisaal_bot',
   } as unknown as typeof bot.botInfo;
 });
 

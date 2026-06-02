@@ -34,7 +34,7 @@ async function waitForDatabase(): Promise<void> {
 }
 
 async function main() {
-  logger.info('Tawasul bot starting', { isDev: config.isDev, defaultTz: config.defaultTimezone });
+  logger.info('Wisaal bot starting', { isDev: config.isDev, defaultTz: config.defaultTimezone });
 
   // "Let it crash": log, then exit so the supervisor restarts from a clean
   // state instead of running on possibly-corrupt memory.
@@ -47,7 +47,7 @@ async function main() {
     exitAfterFlush(1);
   });
 
-  // Wait for the database before serving. Tawasul has no seeded reference data
+  // Wait for the database before serving. Wisaal has no seeded reference data
   // to assert (the reminders live in code), so a successful query is enough.
   await waitForDatabase();
 

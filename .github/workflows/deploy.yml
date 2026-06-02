@@ -4,7 +4,7 @@
 # `deploy` job runs ONLY on a push to main: it SSHes into the VPS, pulls the
 # latest code, then rebuilds this bot's container.
 #
-# Database migrations: tawasul ships an init migration but no seed data (the
+# Database migrations: wisaal ships an init migration but no seed data (the
 # reminders live in code). Apply pending migrations once per environment with
 # `pnpm db:deploy` — either as a one-off compose service (mirroring ayah's
 # `ayah-migrate`) or by hand. `prisma migrate deploy` is idempotent, so it is
@@ -63,7 +63,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             set -e
-            cd /opt/bots/telegram/tawasul && git pull
+            cd /opt/bots/telegram/wisaal && git pull
             cd /opt/bots
-            docker compose up -d --build tawasul
+            docker compose up -d --build wisaal
             docker image prune -f

@@ -1,8 +1,8 @@
-# Tawasul (تواصل)
+# Wisaal (وصال)
 
 A small Telegram bot for **صلة الرحم** — keeping ties with your relatives.
 
-Tawasul gently nudges you, on a rhythm you choose, to reach out to **one
+Wisaal gently nudges you, on a rhythm you choose, to reach out to **one
 relative at a time**, rotating fairly through your circle so no one is
 forgotten. Each nudge carries a warm, authentic encouragement (a hadith, an
 ayah, or a kind word). It never guilts or pressures — صلة الرحم is mercy and
@@ -85,12 +85,12 @@ There is ONE `.env`, at the repo root. Code and scripts load it through
 
 CI/CD lives in `.github/workflows/deploy.yml`. On every push and PR to `main` the
 **test** job runs `pnpm check`. On a push to `main`, the **deploy** job SSHes to
-the VPS, pulls `/opt/bots/telegram/tawasul`, and runs
-`docker compose up -d --build tawasul` (then prunes old images). It activates
-once the `SERVER_IP` and `SSH_KEY` GitHub secrets are set and `tawasul` is added
+the VPS, pulls `/opt/bots/telegram/wisaal`, and runs
+`docker compose up -d --build wisaal` (then prunes old images). It activates
+once the `SERVER_IP` and `SSH_KEY` GitHub secrets are set and `wisaal` is added
 to the VPS `docker compose` file. Apply migrations there with `pnpm db:deploy`
 (idempotent) the first time and whenever the schema changes — e.g. via a
-`tawasul-migrate` one-off compose service like ayah's.
+`wisaal-migrate` one-off compose service like ayah's.
 
 ## License
 

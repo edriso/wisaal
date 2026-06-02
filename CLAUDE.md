@@ -5,7 +5,7 @@ The aim is that a junior developer can read this and be productive.
 
 ## What this is
 
-Tawasul is a Telegram bot for **صلة الرحم** (keeping ties with relatives). For
+Wisaal is a Telegram bot for **صلة الرحم** (keeping ties with relatives). For
 each user it keeps a private circle of relatives and, on the user's chosen
 cadence and outside their quiet hours, nudges them to reach out to ONE relative
 at a time — rotating fairly so no one is forgotten — with a warm, authentic
