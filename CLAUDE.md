@@ -15,11 +15,12 @@ encouragement. Arabic-only (modern standard Arabic, the same warm voice as the
 It is one small TypeScript project, everything under `src/`:
 
 - `src/core` — pure logic, no database, no network. Fully unit-tested.
-- `src/database` — the Prisma client and the database services. Reference
-  content (the reminders) lives in `src/database/reference`.
-- `src/` (bot.ts, scheduler.ts, lib/, …) — the grammY bot and the nudge
-  scheduler. **These arrive in phase 2.** `prisma/` holds the schema and
-  migrations.
+- `src/database` — the Prisma client and the database services
+  (`services/{user,person,nudge,shukr}.service.ts`). Reference content (the
+  reminders) lives in `src/database/reference`.
+- `src/` (bot.ts, scheduler.ts, lib/, …) — the grammY bot (commands +
+  callbacks), the database services, and the per-minute nudge scheduler.
+  `prisma/` holds the schema and migrations.
 
 The cross-bot kernel lives in **`telegram-bot-kit`** (a separate public repo,
 pinned by git tag in `package.json`): timezone/schedule math, the active-day
@@ -46,6 +47,35 @@ argument, so every case is testable):
 
 The reminder paired with each nudge is chosen by `pickReminder(now, index?)`
 (`reminders.ts`), deterministic by UTC day.
+
+## How the daily nudge works
+
+`deliverDueUsers` (in `src/lib/deliver.ts`) runs every minute from
+`scheduler.ts`. For each non-blocked user:
+
+1. `isNudgeDue` checks their timezone, quiet hours, cadence, pause, and snooze.
+2. If a nudge is already recorded for their local date, skip (the lock).
+3. `pickNextPerson` chooses the least-recently-contacted relative.
+4. Build the message (`nudgeMessage` + `pickReminder`) and send plain text.
+5. On success, `claimNudge` records the nudge AND stamps `lastNudgeAt`, in one
+   transaction. The `unique(userId, scheduledFor)` index is the idempotency lock
+   (`scheduledFor` is the local date anchored at UTC midnight — see
+   `nudge.service.ts`).
+
+One user failing is caught and never stops the rest of the batch.
+
+`/now` reuses the exact same `buildNudgeView` + `claimNudge` path: a user who
+pulls their nudge early "claims" the cycle (records it + advances `lastNudgeAt`),
+so the scheduler then skips them — mirroring ayah's `/today`. The rotation only
+advances when the user taps «تواصلت ✅» (sets `lastContactedAt = now`), which
+naturally moves that person to the back; «تخطّي» and «فكّرني بعدين» never mark
+contacted, so the same person stays next.
+
+The visible commands and their handlers live in `src/bot.ts`; the inline
+keyboards (and their callback-data prefixes) live in `src/lib/keyboards.ts`; the
+bare-text pending-input flows (the `/add` name, the `/shukr` note) live in
+`src/lib/pending.ts`. `/forget` deletes the `User` row, which cascades to people,
+nudge logs, and shukr entries.
 
 ## Golden rules
 
@@ -80,8 +110,8 @@ The reminder paired with each nudge is chosen by `pickReminder(now, index?)`
 ```bash
 pnpm install
 pnpm db:deploy   # apply migrations (create tables)
-pnpm db:seed     # no-op for now (reminders live in code)
-pnpm dev         # run the bot with reload (phase 2)
+pnpm db:seed     # no-op (reminders live in code)
+pnpm dev         # run the bot with reload (NODE_ENV=development)
 pnpm test        # all tests
 pnpm check       # typecheck + lint + test (run before pushing)
 pnpm db:studio   # browse the database
@@ -120,3 +150,10 @@ it with `pnpm db:deploy`.
 - Reminder picker: `src/core/reminders.ts`
 - Reminder content (authentic, do not edit): `src/database/reference/reminders.ts`
 - Message wording (Arabic): `src/lib/copy.ts`
+- Nudge build + send + claim: `src/lib/deliver.ts`
+- Database services: `src/database/services/{user,person,nudge,shukr}.service.ts`
+- Commands + callbacks: `src/bot.ts`
+- Inline keyboards + callback-data prefixes: `src/lib/keyboards.ts`
+- Bare-text pending input (the `/add` name, the `/shukr` note): `src/lib/pending.ts`
+- Per-minute scheduler + running-lock: `src/scheduler.ts`
+- Boot (config → bot → scheduler → health, graceful shutdown): `src/index.ts`

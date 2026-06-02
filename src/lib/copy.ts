@@ -10,7 +10,7 @@
 // characters so it always renders correctly. A lone command at the very end of
 // a line is fine without it, so we only wrap the tricky cases.
 
-import { toArabicDigits } from '../core';
+import { getLocalContext, toArabicDigits } from '../core';
 import type { Reminder } from '../database/reference/reminders';
 
 // Unicode isolate characters: First Strong Isolate (U+2066) ... Pop
@@ -42,6 +42,30 @@ export function cadenceSummaryAr(cadenceDays: number): string {
   return `كل ${toArabicDigits(cadenceDays)} يومًا`;
 }
 
+/** Whole local days between two instants, in the given timezone (b − a). */
+function localDaysBetween(timezone: string, a: Date, b: Date): number {
+  const aDate = getLocalContext(timezone, a).date;
+  const bDate = getLocalContext(timezone, b).date;
+  const aMs = Date.parse(`${aDate}T00:00:00Z`);
+  const bMs = Date.parse(`${bDate}T00:00:00Z`);
+  return Math.round((bMs - aMs) / 86_400_000);
+}
+
+/** A friendly Arabic "last reached out" phrase for /list, in the user's
+ *  timezone. Null lastContactedAt reads as "not yet"; the same local day reads
+ *  as "today"; otherwise "N days ago" with number-noun agreement. */
+export function lastContactedAr(lastContactedAt: Date | null, timezone: string, now: Date): string {
+  if (lastContactedAt === null) return COPY.lastContactedNever;
+  const days = localDaysBetween(timezone, lastContactedAt, now);
+  if (days <= 0) return COPY.lastContactedToday;
+  let unit: string;
+  if (days === 1) unit = 'يوم';
+  else if (days === 2) unit = 'يومين';
+  else if (days <= 10) unit = `${toArabicDigits(days)} أيام`;
+  else unit = `${toArabicDigits(days)} يومًا`;
+  return COPY.lastContactedAgo(unit);
+}
+
 /**
  * The daily nudge. A gentle opening line, then the relative's name, a blank
  * line, then the encouragement (with its source if it carries one). Plain text
@@ -59,6 +83,34 @@ export function nudgeMessage(personDisplay: string, reminder: Reminder): string 
   return lines.join('\n');
 }
 
+/**
+ * A short summary of the user's current settings, for /start (returning) and
+ * /settings. Cadence, quiet window, and timezone, each on its own line.
+ */
+export function settingsSummary(user: {
+  cadenceDays: number;
+  quietStartHour: number;
+  quietEndHour: number;
+  timezone: string;
+  paused: boolean;
+}): string {
+  const lines = [
+    COPY.settingsHeader,
+    `• التذكير: ${cadenceSummaryAr(user.cadenceDays)}`,
+    `• ${quietWindowAr(user.quietStartHour, user.quietEndHour)}`,
+    `• المنطقة الزمنية: ${ltr(user.timezone)}`,
+  ];
+  if (user.paused) lines.push('• الحالة: التذكيرات متوقفة مؤقتًا ⏸️');
+  return lines.join('\n');
+}
+
+/** Describe the quiet window in friendly Arabic, handling the empty case. */
+export function quietWindowAr(startHour: number, endHour: number): string {
+  if (startHour === endHour) return 'بدون ساعات هدوء';
+  const fmt = (h: number) => ltr(`${String(h).padStart(2, '0')}:00`);
+  return `ساعات الهدوء من ${fmt(startHour)} حتى ${fmt(endHour)}`;
+}
+
 export const COPY = {
   // ─── Acknowledgements (warm, never guilt) ────────────────────────────
   // After the user marks that they reached out.
@@ -68,72 +120,102 @@ export const COPY = {
   // After "skip this one" — move the rotation along with no pressure.
   skipped: 'تمام، سننتقل إلى غيره في المرة القادمة بإذن الله 🤍',
 
-  // ─── Placeholders for phase 2 (handlers will fill these in) ──────────
-  // Kept here now so the wording lives in one place from the start; phase 2
-  // wires them to /start, the keyboards, and the commands.
-
-  // Onboarding: shown to a brand-new user.
+  // ─── Onboarding ──────────────────────────────────────────────────────
+  // Brand-new user. A warm intro to صلة الرحم, a one-line privacy note, and a
+  // prompt to /add their first relative.
   welcomeNew: [
     'السلام عليكم ورحمة الله 🌿',
     '',
-    'مرحبًا بك في بوت "تواصل". يذكّرك بلطف، على الإيقاع الذي تختاره، بأن تَصِل قريبًا واحدًا من أهلك وأرحامك، واحدًا تلو الآخر دون أن تنسى أحدًا.',
+    'مرحبًا بك في بوت "تواصل". صلةُ الرحم بابٌ من أبواب الرحمة والمحبة، وفيها بركةٌ في العمر والرزق. يذكّرك هذا البوت بلطف، على الإيقاع الذي تختاره، بأن تَصِل واحدًا من أهلك وأرحامك، واحدًا تلو الآخر، دون أن تنسى أحدًا — بلا أيّ عتاب أو ضغط.',
     '',
-    'لنبدأ بإضافة من تحب أن تَصِلهم.',
+    'خصوصيتك: لا نحفظ سوى رقم محادثتك والأسماء التي تكتبها بنفسك. ولا نقرأ رسائلك إلى أحد. ومتى أردت، يمحو الأمر /forget كلّ بياناتك نهائيًا.',
+    '',
+    `لنبدأ بإضافة من تحبّ أن تَصِلهم: اكتب ${ltr('/add')} متبوعًا بالاسم.`,
   ].join('\n'),
 
-  // Welcome back for a returning user. Phase 2 passes a settings summary.
-  welcomeBack: 'أهلًا بعودتك إلى "تواصل" 🌿 من تحب أن تَصِل اليوم؟',
+  // Returning user: a short greeting plus their current settings summary.
+  welcome: (summary: string) => `أهلًا بعودتك إلى "تواصل" 🌿\n\n${summary}`,
 
-  // Adding / listing / removing people.
+  // ─── Adding / listing / removing people ──────────────────────────────
   addPrompt: 'اكتب اسم الشخص الذي تريد إضافته (ويمكنك إضافة صلة القرابة، مثل: خالتي فاطمة).',
   addEmpty: 'لم أتمكن من قراءة الاسم. حاول مرة أخرى بكتابة الاسم فقط.',
   addedOne: (display: string) => `أضفتُ ${display} إلى دائرتك 🤍`,
-  listEmpty: 'دائرتك فارغة حتى الآن. أضف أول شخص لتبدأ صلة الرحم.',
+  listEmpty: `دائرتك فارغة حتى الآن. أضف أول شخص بـ ${ltr('/add')} لتبدأ صلة الرحم.`,
   listHeader: 'دائرتك (مَن نذكّرك بصلتهم):',
+  // One line per person in /list: the name, and when they were last reached.
+  listLine: (display: string, lastContacted: string) => `• ${display} — ${lastContacted}`,
+  lastContactedNever: 'لم تتواصل بعد',
+  lastContactedAgo: (daysAr: string) => `آخر تواصل قبل ${daysAr}`,
+  lastContactedToday: 'تواصلت اليوم',
   removePrompt: 'اختر من تريد إزالته من دائرتك.',
+  removeEmpty: 'دائرتك فارغة، فلا أحد لإزالته.',
   removedOne: (display: string) => `أزلتُ ${display} من دائرتك.`,
 
-  // Settings: cadence, quiet hours, timezone.
+  // ─── Settings: cadence, quiet hours, timezone, pause ─────────────────
   settingsHeader: 'إعداداتك الحالية:',
-  cadencePrompt: 'كل كم يوم تحب أن نذكّرك؟ (مثلًا كل يوم، كل ٣ أيام، كل أسبوع)',
+  settingsCadenceBtn: '⏱️ كل كم يوم؟',
+  settingsQuietBtn: '🌙 ساعات الهدوء',
+  cadencePrompt: 'كل كم يوم تحب أن نذكّرك؟',
   cadenceUpdated: (summary: string) => `تم ضبط التذكير ${summary} ✅`,
-  quietPrompt: 'في أي ساعات تحب ألّا تصلك التذكيرات؟ (مثلًا من الليل حتى الصباح)',
-  quietUpdated: 'تم ضبط ساعات الهدوء ✅',
-  tzPrompt:
-    'اختر منطقتك الزمنية من المدن التالية، أو اكتبها بنفسك بهذه الصيغة:\n' +
-    `${ltr('/timezone Area/City')}\n` +
-    `مثل ${ltr('/timezone Africa/Cairo')}`,
-  tzInvalid: `اسم المنطقة الزمنية غير صحيح. مثال صحيح: ${ltr('Africa/Cairo')}`,
+  quietPrompt: 'في أي ساعات تحب ألّا تصلك التذكيرات؟',
+  quietUpdated: (window: string) => `تم ضبط ${window} ✅`,
   tzUpdated: (tz: string) => `تم ضبط المنطقة الزمنية على ${ltr(tz)} ✅`,
 
-  // /now — send a nudge immediately, outside the schedule.
-  nowNoPeople: 'أضف أحدًا إلى دائرتك أولًا حتى أذكّرك بصلته 🤍',
+  // ─── /now — send a nudge immediately, outside the schedule ───────────
+  nowNoPeople: `أضف أحدًا إلى دائرتك أولًا (بـ ${ltr('/add')}) حتى أذكّرك بصلته 🤍`,
+  // Shown when /now is run again after today's nudge was already claimed.
+  nowAlready: 'هذا هو تذكير اليوم 🤍',
 
-  // /forget — clear a person's last-contacted history (reset rotation).
-  forgetDone: 'تمام، أعدتُ ضبط الترتيب. سنبدأ من جديد بإذن الله.',
+  // ─── Nudge action button labels ──────────────────────────────────────
+  btnContacted: 'تواصلت ✅',
+  btnSnooze: 'فكّرني بعدين ⏰',
+  btnSkip: 'تخطّي',
 
-  // Pause / resume.
-  paused: 'تم إيقاف التذكيرات مؤقتًا 🌿 وعندما تريد العودة اكتب /resume',
+  // ─── Pause / resume ──────────────────────────────────────────────────
+  pauseBtn: '⏸️ إيقاف التذكيرات',
+  resumeBtn: '▶️ استئناف التذكيرات',
+  paused: `تم إيقاف التذكيرات مؤقتًا 🌿 ومتى أردت العودة اكتب ${ltr('/resume')}.`,
   resumed: 'أهلًا بعودتك 🌿 سنواصل تذكيرك بصلة أرحامك بإذن الله.',
+  alreadyPaused: 'التذكيرات متوقفة بالفعل 🌿',
+  alreadyActive: 'التذكيرات تعمل بالفعل 🌿',
 
-  // /shukr — the optional gratitude journal.
-  shukrPrompt: 'اكتب كلمةً عن لقاءٍ أو وصلٍ أسعدك، نحفظها لك في دفتر شكرك 🤍',
+  // ─── /forget — wipe ALL of the user's data ───────────────────────────
+  forgetPrompt:
+    'هل تريد محو كل بياناتك نهائيًا؟ سيُحذف رقم محادثتك وكل الأسماء التي أضفتها وكل سجلّك. لا يمكن التراجع عن هذا.',
+  forgetConfirmBtn: '🗑️ نعم، امحُ كل شيء',
+  forgetCancelBtn: 'تراجع',
+  forgetDone: 'تم محو كل بياناتك. نسأل الله أن يصل قلبك بأرحامك دائمًا 🤍',
+  forgetNothing: 'لا توجد بيانات لمحوها أصلًا 🌿',
+  forgetCancelled: 'تمام، لم أمحُ شيئًا 🌿',
+
+  // ─── /shukr — the optional gratitude journal ─────────────────────────
+  shukrIntro: (enabled: boolean) =>
+    enabled
+      ? 'دفتر الشكر مُفعّل 🤍 اكتب كلمةً عن وصلٍ أسعدك لأحفظها لك، أو أوقِف هذه الميزة بالزر.'
+      : 'دفتر الشكر ميزة اختيارية لطيفة: حين تُفعّلها، يمكنك تدوين لحظة امتنان قصيرة بعد كل وصل. فعّلها بالزر.',
+  shukrEnableBtn: 'تفعيل دفتر الشكر 🤍',
+  shukrDisableBtn: 'إيقاف دفتر الشكر',
+  shukrEnabled: 'تم تفعيل دفتر الشكر 🤍 اكتب الآن كلمةً عن وصلٍ أسعدك.',
+  shukrDisabled: 'تم إيقاف دفتر الشكر 🌿',
   shukrSaved: 'حفظتُها لك 🤍 الحمد لله على نعمة الأهل والأرحام.',
+  shukrNotEnabled: `دفتر الشكر غير مُفعّل. فعّله أولًا بـ ${ltr('/shukr')}.`,
 
-  // /help — full command list (phase 2 finalises the exact set).
+  // ─── /help — full command list ───────────────────────────────────────
   help: [
     'بوت "تواصل" يذكّرك بلطف بصلة أرحامك، واحدًا تلو الآخر.',
     '',
     'الأوامر:',
-    '/add: إضافة شخص إلى دائرتك',
-    '/list: عرض دائرتك',
-    '/remove: إزالة شخص من دائرتك',
-    '/now: تذكير فوري بمن يأتي دوره',
-    '/settings: عرض وضبط إعداداتك',
-    '/pause: إيقاف التذكيرات مؤقتًا، و /resume للعودة',
-    '/shukr: تدوين لحظة امتنان',
+    `${ltr('/add')} — إضافة شخص إلى دائرتك`,
+    `${ltr('/list')} — عرض دائرتك`,
+    `${ltr('/remove')} — إزالة شخص من دائرتك`,
+    `${ltr('/now')} — تذكير فوري بمن يأتي دوره`,
+    `${ltr('/settings')} — ضبط الإيقاع وساعات الهدوء`,
+    `${ltr('/pause')} — إيقاف التذكيرات، و ${ltr('/resume')} للعودة`,
+    `${ltr('/shukr')} — تدوين لحظة امتنان (اختياري)`,
+    `${ltr('/forget')} — محو كل بياناتك`,
+    `${ltr('/help')} — هذه القائمة`,
   ].join('\n'),
 
-  // Generic fallback when something is not ready yet.
-  fallback: 'لم أفهم ذلك تمامًا. اكتب /help لرؤية الأوامر المتاحة.',
+  // Generic fallback for an unrecognised message.
+  fallback: `لم أفهم ذلك تمامًا. اكتب ${ltr('/help')} لرؤية الأوامر المتاحة.`,
 };
