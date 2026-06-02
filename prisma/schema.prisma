@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/database/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// Naming: TS model names are PascalCase singular and TS fields are
+// camelCase (idiomatic TypeScript). The @map / @@map directives expose
+// snake_case plural tables and snake_case columns in MySQL (the usual SQL
+// convention). We do NOT use Prisma enums; short string fields with a
+// comment listing the allowed values keep migrations simpler, matching the
+// other bots in this folder (ayah, tilawah).
+
+// ─── Users ──────────────────────────────────────────────────────────
+//
+// One row per person the bot nudges. Each user keeps their own circle of
+// relatives (Person rows) and is reminded, on their chosen cadence, to reach
+// out to ONE of them at a time, rotating fairly. All scheduling is driven by
+// the user's own timezone and quiet-hours window.
+
+model User {
+  id         Int    @id @default(autoincrement())
+  telegramId BigInt @unique @map("telegram_id")
+  // UI language. v1 ships Arabic only.
+  language   String @default("ar") @db.VarChar(8) // allowed: ar, en — v1 ar only
+  // IANA timezone, e.g. "Africa/Cairo". Drives the local clock used for the
+  // quiet-hours window and the per-cycle idempotency date key.
+  timezone   String @default("Africa/Cairo") @db.VarChar(64)
+
+  // How many whole days to wait between nudges. 1 = daily, 3 = every three
+  // days, 7 = weekly. The default is a gentle every-three-days.
+  cadenceDays    Int @default(3) @map("cadence_days")
+  // The quiet window, in the user's LOCAL hour (0-23). No nudge is sent while
+  // the local clock is inside it. The window may wrap past midnight: with
+  // start 22 and end 8 the quiet time runs 22:00 → 08:00. See
+  // src/core/eligibility.ts (isQuietHour) for the wrap-around handling.
+  quietStartHour Int @default(22) @map("quiet_start_hour") @db.TinyInt
+  quietEndHour   Int @default(8) @map("quiet_end_hour") @db.TinyInt
+
+  // Snooze: when set and still in the future, suppress nudges until then.
+  // Cleared (or simply passed) once the moment is reached.
+  snoozeUntil DateTime? @map("snooze_until")
+  // Break: when true the bot sends nothing. Unlike snooze this is indefinite,
+  // cleared only when the user resumes.
+  paused      Boolean   @default(false)
+  // Reachability: set when Telegram tells us the user blocked the bot (or a
+  // send fails with 403). Nudge loops filter `blocked = false`.
+  blocked     Boolean   @default(false)
+  // Opt-in for the optional gratitude (shukr) prompts.
+  shukrEnabled Boolean  @default(false) @map("shukr_enabled")
+
+  // When the last nudge was actually sent. Paired with cadenceDays to decide
+  // whether the next one is due. Null means never nudged yet.
+  lastNudgeAt DateTime? @map("last_nudge_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  people      Person[]
+  nudgeLogs   NudgeLog[]
+  shukrEntries ShukrEntry[]
+
+  @@map("users")
+}
+
+// ─── People (the user's circle of relatives) ────────────────────────
+
+model Person {
+  id     Int    @id @default(autoincrement())
+  userId Int    @map("user_id")
+  name   String @db.VarChar(128)
+  // Free-text relationship label, e.g. "خالتي". Optional.
+  relation String? @db.VarChar(64)
+  // When the user last marked this person as contacted. Drives the fair
+  // rotation: a never-contacted person (null) is always picked before any
+  // contacted one; among contacted, the least-recently is next. See
+  // src/core/rotation.ts.
+  lastContactedAt DateTime? @map("last_contacted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nudgeLogs NudgeLog[]
+
+  @@index([userId])
+  @@map("people")
+}
+
+// ─── Nudge history + idempotency ────────────────────────────────────
+
+model NudgeLog {
+  id       Int  @id @default(autoincrement())
+  userId   Int  @map("user_id")
+  // The person this nudge was about. Nullable so a log row survives even if
+  // the person is later removed (we keep the history; the FK sets it null).
+  personId Int? @map("person_id")
+  // What happened: the bot nudged, or the user acted on it.
+  action   String @db.VarChar(16) // allowed: nudged, contacted, snoozed, skipped
+  // The user's LOCAL date the nudge was meant for ("YYYY-MM-DD"). The unique
+  // index below turns this into the one-nudge-per-cycle lock: a user gets at
+  // most one nudge per local date, even if the cron double-fires or catches
+  // up after a restart. Mirrors ayah's DeliveryLog.scheduledFor lock.
+  scheduledFor DateTime @map("scheduled_for")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  person Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, scheduledFor], map: "nudge_logs_user_date_key")
+  @@index([userId])
+  @@map("nudge_logs")
+}
+
+// ─── Gratitude (shukr) entries ──────────────────────────────────────
+//
+// An optional journal: short notes the user records when a connection went
+// well. Purely additive and encouraging; never surfaced as pressure.
+
+model ShukrEntry {
+  id     Int    @id @default(autoincrement())
+  userId Int    @map("user_id")
+  text   String @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("shukr_entries")
+}
