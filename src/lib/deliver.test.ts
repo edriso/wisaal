@@ -35,13 +35,12 @@ function dueUser(over: Record<string, unknown> = {}) {
     id: 1,
     telegramId: 111n,
     timezone: 'Africa/Cairo',
-    cadenceDays: 3,
     quietStartHour: 22,
     quietEndHour: 8,
     snoozeUntil: null,
     paused: false,
     blocked: false,
-    lastNudgeAt: null, // never nudged -> due
+    lastNudgeAt: null,
     ...over,
   };
 }
@@ -51,7 +50,8 @@ const PEOPLE = [
     id: 10,
     name: 'فاطمة',
     relation: 'خالتي',
-    lastContactedAt: null,
+    cadenceDays: 7,
+    lastContactedAt: null, // never contacted -> due
     createdAt: new Date('2026-01-01'),
   },
 ];
@@ -88,7 +88,7 @@ describe('deliverDueUsers', () => {
 
     expect(h.sendMessage).not.toHaveBeenCalled();
     expect(h.claimNudge).not.toHaveBeenCalled();
-    expect(stats).toMatchObject({ due: 1, sent: 0, skipped: 1 });
+    expect(stats).toMatchObject({ due: 0, sent: 0, skipped: 1 });
   });
 
   it('does NOT claim/advance when the send fails (retried next tick)', async () => {
@@ -119,13 +119,33 @@ describe('deliverDueUsers', () => {
     expect(stats).toMatchObject({ due: 0, sent: 0 });
   });
 
-  it('skips a due user with an empty circle', async () => {
+  it('leaves an available user with an empty circle in peace (not counted)', async () => {
     h.findMany.mockResolvedValue([dueUser()]);
     h.listPeople.mockResolvedValue([]);
     const stats = await deliverDueUsers(bot, NOW);
 
     expect(h.sendMessage).not.toHaveBeenCalled();
-    expect(stats).toMatchObject({ due: 1, sent: 0, skipped: 1 });
+    expect(stats).toMatchObject({ due: 0, sent: 0, skipped: 0 });
+  });
+
+  it('leaves an available user with nobody due in peace (recent contact, within cadence)', async () => {
+    h.findMany.mockResolvedValue([dueUser()]);
+    // One relative, contacted 2 days ago on a 7-day cadence → not due yet.
+    h.listPeople.mockResolvedValue([
+      {
+        id: 10,
+        name: 'فاطمة',
+        relation: 'خالتي',
+        cadenceDays: 7,
+        lastContactedAt: new Date('2026-05-31T10:00:00Z'),
+        createdAt: new Date('2026-01-01'),
+      },
+    ]);
+    const stats = await deliverDueUsers(bot, NOW);
+
+    expect(h.sendMessage).not.toHaveBeenCalled();
+    expect(h.claimNudge).not.toHaveBeenCalled();
+    expect(stats).toMatchObject({ due: 0, sent: 0 });
   });
 
   it('one user throwing does not stop the others', async () => {

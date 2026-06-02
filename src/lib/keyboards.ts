@@ -30,9 +30,15 @@ export const PERSON_CONTACTED_PREFIX = 'tw:pcontact:';
 // At most this many person-buttons per page; more spills onto further pages.
 export const PAGE_SIZE = 8;
 
-// Cadence picker, e.g. "tw:cad:3".
-export const CADENCE_PREFIX = 'tw:cad:';
-export const CADENCE_OPTIONS = [1, 3, 7] as const;
+// Per-relative cadence, edited from a person's detail card in /list. Opening
+// the picker carries the person id, e.g. "tw:pcad:42"; choosing an option
+// carries the id and the new cadence, e.g. "tw:pcadset:42:7". Both stay well
+// inside Telegram's 64-byte limit.
+export const PERSON_CADENCE_PREFIX = 'tw:pcad:';
+export const PERSON_CADENCE_SET_PREFIX = 'tw:pcadset:';
+// The cadence options offered, in whole days: daily, every 3 days, weekly,
+// fortnightly, monthly. Weekly is the default for a new relative.
+export const CADENCE_OPTIONS = [1, 3, 7, 14, 30] as const;
 
 // Quiet-hours picker. A small set of friendly windows, e.g. "tw:quiet:22:8".
 export const QUIET_PREFIX = 'tw:quiet:';
@@ -115,11 +121,14 @@ export function buildPeopleListKeyboard(
 
 /**
  * The per-person detail card keyboard: mark contacted (reuses the nudge
- * «تواصلت» action so the same person is recorded), remove, and back to the list.
+ * «تواصلت» action so the same person is recorded), tune how often we remind
+ * about this relative, remove, and back to the list.
  */
 export function buildPersonDetailKeyboard(personId: number): InlineKeyboard {
   return new InlineKeyboard()
     .text(COPY.btnContacted, `${PERSON_CONTACTED_PREFIX}${personId}`)
+    .row()
+    .text(COPY.btnPersonCadence, `${PERSON_CADENCE_PREFIX}${personId}`)
     .row()
     .text(COPY.btnRemovePerson, `${REMOVE_PREFIX}${personId}`)
     .row()
@@ -131,12 +140,19 @@ export function buildBackToListKeyboard(): InlineKeyboard {
   return new InlineKeyboard().text(COPY.btnBackToList, `${LIST_PAGE_PREFIX}1`);
 }
 
-/** The cadence picker: daily / every three days / weekly. */
-export function buildCadenceKeyboard(): InlineKeyboard {
+/**
+ * The per-relative cadence picker, opened from a person's detail card. One
+ * button per option (the current choice is marked), then a row back to the
+ * detail card. `current` is the person's cadenceDays so the active option reads
+ * as selected.
+ */
+export function buildPersonCadenceKeyboard(personId: number, current: number): InlineKeyboard {
   const kb = new InlineKeyboard();
   for (const days of CADENCE_OPTIONS) {
-    kb.text(cadenceSummaryAr(days), `${CADENCE_PREFIX}${days}`).row();
+    const label = days === current ? `✅ ${cadenceSummaryAr(days)}` : cadenceSummaryAr(days);
+    kb.text(label, `${PERSON_CADENCE_SET_PREFIX}${personId}:${days}`).row();
   }
+  kb.text(COPY.btnBackToPerson, `${PERSON_PREFIX}${personId}`);
   return kb;
 }
 
@@ -149,11 +165,10 @@ export function buildQuietKeyboard(): InlineKeyboard {
   return kb;
 }
 
-/** The small keyboard under /settings: cadence, quiet hours, and pause/resume. */
+/** The small keyboard under /settings: quiet hours and pause/resume. (Cadence
+ *  is per relative now — tuned from each person's card in /list.) */
 export function buildSettingsKeyboard(paused: boolean): InlineKeyboard {
   return new InlineKeyboard()
-    .text(COPY.settingsCadenceBtn, `${CADENCE_PREFIX}open`)
-    .row()
     .text(COPY.settingsQuietBtn, `${QUIET_PREFIX}open`)
     .row()
     .text(paused ? COPY.resumeBtn : COPY.pauseBtn, PAUSE_TOGGLE);

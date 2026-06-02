@@ -10,6 +10,7 @@ import {
   listPeople,
   removePerson,
   markContacted,
+  setPersonCadence,
   claimNudge,
   logAction,
   addShukr,
@@ -35,7 +36,7 @@ import {
   buildPeopleListKeyboard,
   buildPersonDetailKeyboard,
   buildBackToListKeyboard,
-  buildCadenceKeyboard,
+  buildPersonCadenceKeyboard,
   buildQuietKeyboard,
   buildSettingsKeyboard,
   buildShukrKeyboard,
@@ -48,8 +49,9 @@ import {
   LIST_PAGE_PREFIX,
   PERSON_PREFIX,
   PERSON_CONTACTED_PREFIX,
+  PERSON_CADENCE_PREFIX,
+  PERSON_CADENCE_SET_PREFIX,
   PAGE_SIZE,
-  CADENCE_PREFIX,
   CADENCE_OPTIONS,
   QUIET_PREFIX,
   QUIET_OPTIONS,
@@ -62,9 +64,9 @@ import { takePending, setPending, clearPending } from './lib/pending';
 
 const bot = new Bot<Context>(config.botToken);
 
-// "Remind me later" pushes the next nudge out by roughly one day. isNudgeDue
-// suppresses nudges while snoozeUntil is ahead of now, so this is a soft skip
-// of one cycle, not a pause.
+// "Remind me later" pushes the next nudge out by roughly one day.
+// isUserAvailable suppresses nudges while snoozeUntil is ahead of now, so this
+// is a soft skip of one cycle, not a pause.
 const SNOOZE_MS = 24 * 60 * 60 * 1000;
 
 /** Make sure we have a user row for whoever sent this update. */
@@ -111,19 +113,17 @@ function parsePersonInput(text: string): { name: string; relation: string | null
 
 // ─── Nudge build + send + claim (shared by /now and the scheduler path) ──
 
-/** Map a User row to the shape buildNudgeView / isNudgeDue need. */
+/** Map a User row to the shape buildNudgeView / isUserAvailable need. */
 function toNudgeUser(user: User): NudgeUser {
   return {
     id: user.id,
     telegramId: user.telegramId,
     timezone: user.timezone,
-    cadenceDays: user.cadenceDays,
     quietStartHour: user.quietStartHour,
     quietEndHour: user.quietEndHour,
     snoozeUntil: user.snoozeUntil,
     paused: user.paused,
     blocked: user.blocked,
-    lastNudgeAt: user.lastNudgeAt,
   };
 }
 
@@ -407,6 +407,19 @@ bot.callbackQuery(new RegExp(`^${LIST_PAGE_PREFIX}(\\d+)$`), async (ctx) => {
   await ctx.answerCallbackQuery();
 });
 
+/** Edit the current message into a person's detail card (name, last contact,
+ *  and per-relative cadence) with its quick-action keyboard. */
+async function editPersonDetail(ctx: Context, user: User, person: RotationPerson): Promise<void> {
+  const card = COPY.personDetail(
+    personLabel(person.name, person.relation),
+    lastContactedAr(person.lastContactedAt, user.timezone, new Date()),
+    cadenceSummaryAr(person.cadenceDays),
+  );
+  await ctx
+    .editMessageText(card, { reply_markup: buildPersonDetailKeyboard(person.id) })
+    .catch(ignoreNotModified);
+}
+
 // Tap a person → edit the message into their detail card with quick actions.
 bot.callbackQuery(new RegExp(`^${PERSON_PREFIX}(\\d+)$`), async (ctx) => {
   const user = await userFor(ctx);
@@ -423,13 +436,7 @@ bot.callbackQuery(new RegExp(`^${PERSON_PREFIX}(\\d+)$`), async (ctx) => {
     await ctx.answerCallbackQuery();
     return;
   }
-  const card = COPY.personDetail(
-    personLabel(person.name, person.relation),
-    lastContactedAr(person.lastContactedAt, user.timezone, new Date()),
-  );
-  await ctx
-    .editMessageText(card, { reply_markup: buildPersonDetailKeyboard(personId) })
-    .catch(ignoreNotModified);
+  await editPersonDetail(ctx, user, person);
   await ctx.answerCallbackQuery();
 });
 
@@ -453,29 +460,55 @@ bot.callbackQuery(new RegExp(`^${PERSON_CONTACTED_PREFIX}(\\d+)$`), async (ctx) 
   await ctx.answerCallbackQuery();
 });
 
-// ─── Cadence buttons ─────────────────────────────────────────────────
+// ─── Per-relative cadence buttons (from a person's /list detail card) ──
 
-// Opening the cadence picker from /settings.
-bot.callbackQuery(`${CADENCE_PREFIX}open`, async (ctx) => {
-  await ctx.reply(COPY.cadencePrompt, { reply_markup: buildCadenceKeyboard() });
-  await ctx.answerCallbackQuery();
-});
-
-bot.callbackQuery(new RegExp(`^${CADENCE_PREFIX}(\\d+)$`), async (ctx) => {
+// Open the cadence picker for one relative. The current choice is marked, and
+// «‹ رجوع» returns to their detail card.
+bot.callbackQuery(new RegExp(`^${PERSON_CADENCE_PREFIX}(\\d+)$`), async (ctx) => {
   const user = await userFor(ctx);
   if (!user) {
     await ctx.answerCallbackQuery();
     return;
   }
-  const days = Number(ctx.match![1]);
+  const personId = Number(ctx.match![1]);
+  const people = await listPeople(user.id);
+  const person = people.find((p) => p.id === personId);
+  if (!person) {
+    await renderListPage(ctx, user, 1);
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  await ctx
+    .editMessageText(COPY.personCadencePrompt(personLabel(person.name, person.relation)), {
+      reply_markup: buildPersonCadenceKeyboard(personId, person.cadenceDays),
+    })
+    .catch(ignoreNotModified);
+  await ctx.answerCallbackQuery();
+});
+
+// Set a relative's cadence, then drop back to their (now updated) detail card.
+bot.callbackQuery(new RegExp(`^${PERSON_CADENCE_SET_PREFIX}(\\d+):(\\d+)$`), async (ctx) => {
+  const user = await userFor(ctx);
+  if (!user) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  const personId = Number(ctx.match![1]);
+  const days = Number(ctx.match![2]);
   if (!(CADENCE_OPTIONS as readonly number[]).includes(days)) {
     await ctx.answerCallbackQuery();
     return;
   }
-  await updateSettings(user.id, { cadenceDays: days });
-  await ctx.editMessageReplyMarkup().catch(ignoreNotModified);
-  await ctx.reply(COPY.cadenceUpdated(cadenceSummaryAr(days)));
-  await ctx.answerCallbackQuery();
+  const ok = await setPersonCadence(user.id, personId, days);
+  if (!ok) {
+    await renderListPage(ctx, user, 1);
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  const people = await listPeople(user.id);
+  const person = people.find((p) => p.id === personId);
+  if (person) await editPersonDetail(ctx, user, person);
+  await ctx.answerCallbackQuery({ text: cadenceSummaryAr(days) });
 });
 
 // ─── Quiet-hours buttons ─────────────────────────────────────────────
@@ -647,9 +680,9 @@ async function setBotProfile() {
   await bot.api.setMyCommands([
     { command: 'now', description: 'تذكير فوري بمن يأتي دوره' },
     { command: 'add', description: 'إضافة شخص إلى دائرتك' },
-    { command: 'list', description: 'دائرتك — وتسجيل تواصلك مع أيّ شخص' },
+    { command: 'list', description: 'دائرتك — تسجيل التواصل وضبط إيقاع كل قريب' },
     { command: 'remove', description: 'إزالة شخص من دائرتك' },
-    { command: 'settings', description: 'ضبط الإيقاع وساعات الهدوء' },
+    { command: 'settings', description: 'ضبط ساعات الهدوء' },
     { command: 'pause', description: 'إيقاف التذكيرات مؤقتًا' },
     { command: 'resume', description: 'استئناف التذكيرات' },
     { command: 'shukr', description: 'تدوين لحظة امتنان' },

@@ -1,10 +1,11 @@
 import { prisma } from '../client';
 
-/** The Person fields the rotation needs, in the order the picker expects. */
+/** The Person fields the rotation + per-relative due check need. */
 const rotationSelect = {
   id: true,
   name: true,
   relation: true,
+  cadenceDays: true,
   lastContactedAt: true,
   createdAt: true,
 } as const;
@@ -14,7 +15,9 @@ export type RotationPerson = Awaited<ReturnType<typeof listPeople>>[number];
 /**
  * Add a relative to the user's circle. The relation label (e.g. "خالتي") is
  * optional. A brand-new person has lastContactedAt null, so the fair rotation
- * (src/core/rotation.ts) always reaches them before anyone already contacted.
+ * (src/core/rotation.ts) always reaches them before anyone already contacted,
+ * and cadenceDays takes the schema default (a gentle weekly) until the user
+ * tunes it from /list.
  */
 export function addPerson(userId: number, name: string, relation?: string | null) {
   return prisma.person.create({
@@ -60,6 +63,24 @@ export async function markContacted(
   const result = await prisma.person.updateMany({
     where: { id: personId, userId },
     data: { lastContactedAt: now },
+  });
+  return result.count > 0;
+}
+
+/**
+ * Set how often (in whole days) this relative is due again after a contact.
+ * Scoped to userId so one user can only ever retune their OWN people. Returns
+ * true if a row was updated. The caller validates `cadenceDays` against the
+ * allowed options (see CADENCE_OPTIONS).
+ */
+export async function setPersonCadence(
+  userId: number,
+  personId: number,
+  cadenceDays: number,
+): Promise<boolean> {
+  const result = await prisma.person.updateMany({
+    where: { id: personId, userId },
+    data: { cadenceDays },
   });
   return result.count > 0;
 }

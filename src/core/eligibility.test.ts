@@ -1,12 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { isNudgeDue, isQuietHour, type EligibilityUser } from './eligibility';
+import {
+  isPersonDue,
+  isQuietHour,
+  isUserAvailable,
+  type DueCandidate,
+  type EligibilityUser,
+} from './eligibility';
 
-// A baseline user: every 3 days, quiet 22:00–08:00, in Cairo (UTC+2, no DST in
-// the years tested). Tests override only the fields they care about.
+// A baseline user: quiet 22:00–08:00, in Cairo (UTC+2, no DST in the years
+// tested). Tests override only the fields they care about.
 function user(overrides: Partial<EligibilityUser> = {}): EligibilityUser {
   return {
     timezone: 'Africa/Cairo',
-    cadenceDays: 3,
     quietStartHour: 22,
     quietEndHour: 8,
     snoozeUntil: null,
@@ -40,106 +45,112 @@ describe('isQuietHour', () => {
   });
 });
 
-describe('isNudgeDue — gating flags', () => {
-  it('is not due when paused', () => {
+describe('isUserAvailable — gating flags', () => {
+  it('is not available when paused', () => {
     const now = new Date('2026-06-02T10:00:00Z'); // 12:00 Cairo, awake
-    expect(isNudgeDue({ now, user: user({ paused: true }), lastNudgeAt: null })).toBe(false);
+    expect(isUserAvailable({ now, user: user({ paused: true }) })).toBe(false);
   });
 
-  it('is not due when blocked', () => {
+  it('is not available when blocked', () => {
     const now = new Date('2026-06-02T10:00:00Z');
-    expect(isNudgeDue({ now, user: user({ blocked: true }), lastNudgeAt: null })).toBe(false);
+    expect(isUserAvailable({ now, user: user({ blocked: true }) })).toBe(false);
   });
 
-  it('is not due while a future snooze is active', () => {
+  it('is not available while a future snooze is active', () => {
     const now = new Date('2026-06-02T10:00:00Z');
     const snoozeUntil = new Date('2026-06-02T12:00:00Z'); // later than now
-    expect(isNudgeDue({ now, user: user({ snoozeUntil }), lastNudgeAt: null })).toBe(false);
+    expect(isUserAvailable({ now, user: user({ snoozeUntil }) })).toBe(false);
   });
 
-  it('is due once a past snooze has elapsed', () => {
+  it('is available once a past snooze has elapsed', () => {
     const now = new Date('2026-06-02T10:00:00Z');
     const snoozeUntil = new Date('2026-06-02T08:00:00Z'); // already passed
-    expect(isNudgeDue({ now, user: user({ snoozeUntil }), lastNudgeAt: null })).toBe(true);
+    expect(isUserAvailable({ now, user: user({ snoozeUntil }) })).toBe(true);
   });
 });
 
-describe('isNudgeDue — quiet hours (in the user timezone)', () => {
-  it('is not due during the local quiet window', () => {
+describe('isUserAvailable — quiet hours (in the user timezone)', () => {
+  it('is not available during the local quiet window', () => {
     // 00:00 UTC = 02:00 Cairo, inside the 22..8 quiet window.
     const now = new Date('2026-06-02T00:00:00Z');
-    expect(isNudgeDue({ now, user: user(), lastNudgeAt: null })).toBe(false);
+    expect(isUserAvailable({ now, user: user() })).toBe(false);
   });
 
-  it('is due just after the quiet window ends locally', () => {
+  it('is available just after the quiet window ends locally', () => {
     // 06:00 UTC = 08:00 Cairo, the first awake hour (end is exclusive).
     const now = new Date('2026-06-02T06:00:00Z');
-    expect(isNudgeDue({ now, user: user(), lastNudgeAt: null })).toBe(true);
+    expect(isUserAvailable({ now, user: user() })).toBe(true);
   });
 
-  it('is not due at the first quiet hour boundary (start inclusive)', () => {
+  it('is not available at the first quiet hour boundary (start inclusive)', () => {
     // 20:00 UTC = 22:00 Cairo, the start of quiet.
     const now = new Date('2026-06-02T20:00:00Z');
-    expect(isNudgeDue({ now, user: user(), lastNudgeAt: null })).toBe(false);
+    expect(isUserAvailable({ now, user: user() })).toBe(false);
+  });
+
+  it('respects local quiet hours in a non-UTC, half-hour-offset zone', () => {
+    // Asia/Kolkata is UTC+5:30 and never observes DST — a good stress test for
+    // the timezone math coming from getLocalContext.
+    const u = user({ timezone: 'Asia/Kolkata', quietStartHour: 22, quietEndHour: 7 });
+    // 18:00 UTC = 23:30 Kolkata → quiet.
+    expect(isUserAvailable({ now: new Date('2026-06-02T18:00:00Z'), user: u })).toBe(false);
+    // 06:00 UTC = 11:30 Kolkata → awake.
+    expect(isUserAvailable({ now: new Date('2026-06-02T06:00:00Z'), user: u })).toBe(true);
   });
 });
 
-describe('isNudgeDue — cadence', () => {
-  // Pick an awake local hour for all cadence cases: 10:00 UTC = 12:00 Cairo.
-  const awake = (day: string) => new Date(`2026-06-${day}T10:00:00Z`);
+describe('isPersonDue — per-relative cadence (in the user timezone)', () => {
+  const tz = 'Africa/Cairo';
+  // An awake-or-not, the due check ignores quiet hours: it is pure date math.
+  const at = (day: string) => new Date(`2026-06-${day}T10:00:00Z`);
+  const person = (overrides: Partial<DueCandidate> = {}): DueCandidate => ({
+    cadenceDays: 7,
+    lastContactedAt: null,
+    ...overrides,
+  });
 
-  it('is due when never nudged before (and awake)', () => {
-    expect(isNudgeDue({ now: awake('02'), user: user(), lastNudgeAt: null })).toBe(true);
+  it('is always due when never contacted', () => {
+    expect(isPersonDue({ now: at('02'), timezone: tz, person: person() })).toBe(true);
   });
 
   it('is not due before cadenceDays whole days have passed', () => {
-    const last = awake('02');
-    // 2 local days later, cadence is 3 → not yet.
-    expect(isNudgeDue({ now: awake('04'), user: user(), lastNudgeAt: last })).toBe(false);
+    const p = person({ cadenceDays: 7, lastContactedAt: at('02') });
+    expect(isPersonDue({ now: at('05'), timezone: tz, person: p })).toBe(false); // 3 < 7
+    expect(isPersonDue({ now: at('08'), timezone: tz, person: p })).toBe(false); // 6 < 7
   });
 
-  it('is due exactly at the cadence boundary (N days)', () => {
-    const last = awake('02');
-    // 3 local days later, cadence is 3 → due (boundary inclusive).
-    expect(isNudgeDue({ now: awake('05'), user: user(), lastNudgeAt: last })).toBe(true);
+  it('is due exactly at the cadence boundary (N days), boundary inclusive', () => {
+    const p = person({ cadenceDays: 7, lastContactedAt: at('02') });
+    expect(isPersonDue({ now: at('09'), timezone: tz, person: p })).toBe(true); // 7 == 7
   });
 
   it('is due past the cadence boundary', () => {
-    const last = awake('02');
-    expect(isNudgeDue({ now: awake('10'), user: user(), lastNudgeAt: last })).toBe(true);
+    const p = person({ cadenceDays: 7, lastContactedAt: at('02') });
+    expect(isPersonDue({ now: at('20'), timezone: tz, person: p })).toBe(true);
   });
 
   it('honours a daily cadence (1 day)', () => {
-    const u = user({ cadenceDays: 1 });
-    const last = awake('02');
-    expect(isNudgeDue({ now: awake('02'), user: u, lastNudgeAt: last })).toBe(false); // same day
-    expect(isNudgeDue({ now: awake('03'), user: u, lastNudgeAt: last })).toBe(true); // next day
+    const p = person({ cadenceDays: 1, lastContactedAt: at('02') });
+    expect(isPersonDue({ now: at('02'), timezone: tz, person: p })).toBe(false); // same day
+    expect(isPersonDue({ now: at('03'), timezone: tz, person: p })).toBe(true); // next day
+  });
+
+  it('honours a monthly cadence (30 days)', () => {
+    const last = new Date('2026-06-02T10:00:00Z');
+    const p = person({ cadenceDays: 30, lastContactedAt: last });
+    expect(isPersonDue({ now: new Date('2026-06-25T10:00:00Z'), timezone: tz, person: p })).toBe(
+      false,
+    );
+    expect(isPersonDue({ now: new Date('2026-07-02T10:00:00Z'), timezone: tz, person: p })).toBe(
+      true,
+    );
   });
 
   it('counts cadence by LOCAL calendar dates, not raw 24h spans', () => {
-    // Last nudge late on the 2nd Cairo time, "now" early on the 5th Cairo time.
-    // 21:00 UTC on the 1st = 23:00 Cairo on the 1st... use clearer instants:
     // last: 22:00 UTC 02 = 00:00 Cairo 03. now: 07:00 UTC 06 = 09:00 Cairo 06.
-    const last = new Date('2026-06-02T22:00:00Z'); // Cairo: 2026-06-03
-    const now = new Date('2026-06-06T07:00:00Z'); // Cairo: 2026-06-06, 09:00
-    // Local dates differ by 3 → due with cadence 3.
-    expect(isNudgeDue({ now, user: user(), lastNudgeAt: last })).toBe(true);
-  });
-});
-
-describe('isNudgeDue — a non-UTC, half-hour-offset timezone via the kit', () => {
-  // Asia/Kolkata is UTC+5:30 and never observes DST, a good stress test for
-  // the timezone math coming from getLocalContext.
-  const tz = 'Asia/Kolkata';
-
-  it('respects local quiet hours in Kolkata', () => {
-    const u = user({ timezone: tz, quietStartHour: 22, quietEndHour: 7 });
-    // 18:00 UTC = 23:30 Kolkata → quiet.
-    expect(isNudgeDue({ now: new Date('2026-06-02T18:00:00Z'), user: u, lastNudgeAt: null })).toBe(
-      false,
-    );
-    // 06:00 UTC = 11:30 Kolkata → awake.
-    expect(isNudgeDue({ now: new Date('2026-06-02T06:00:00Z'), user: u, lastNudgeAt: null })).toBe(
+    // Local dates differ by 3, so a 3-day cadence is due.
+    const p = person({ cadenceDays: 3, lastContactedAt: new Date('2026-06-02T22:00:00Z') });
+    expect(isPersonDue({ now: new Date('2026-06-06T07:00:00Z'), timezone: tz, person: p })).toBe(
       true,
     );
   });

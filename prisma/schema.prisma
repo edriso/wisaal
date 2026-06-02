@@ -30,9 +30,6 @@ model User {
   // quiet-hours window and the per-cycle idempotency date key.
   timezone   String @default("Africa/Cairo") @db.VarChar(64)
 
-  // How many whole days to wait between nudges. 1 = daily, 3 = every three
-  // days, 7 = weekly. The default is a gentle every-three-days.
-  cadenceDays    Int @default(3) @map("cadence_days")
   // The quiet window, in the user's LOCAL hour (0-23). No nudge is sent while
   // the local clock is inside it. The window may wrap past midnight: with
   // start 22 and end 8 the quiet time runs 22:00 → 08:00. See
@@ -52,8 +49,9 @@ model User {
   // Opt-in for the optional gratitude (shukr) prompts.
   shukrEnabled Boolean  @default(false) @map("shukr_enabled")
 
-  // When the last nudge was actually sent. Paired with cadenceDays to decide
-  // whether the next one is due. Null means never nudged yet.
+  // When the last nudge was actually sent. Kept for diagnostics and so a /now
+  // pull can record the day's nudge; eligibility itself is now decided per
+  // relative (see Person.cadenceDays). Null means never nudged yet.
   lastNudgeAt DateTime? @map("last_nudge_at")
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -73,10 +71,16 @@ model Person {
   name   String @db.VarChar(128)
   // Free-text relationship label, e.g. "خالتي". Optional.
   relation String? @db.VarChar(64)
-  // When the user last marked this person as contacted. Drives the fair
-  // rotation: a never-contacted person (null) is always picked before any
-  // contacted one; among contacted, the least-recently is next. See
-  // src/core/rotation.ts.
+  // How many whole days to wait, since this relative was last contacted, before
+  // they are due again. 1 = daily, 7 = weekly, 30 ≈ monthly. The cadence is
+  // per relative, so the user can keep in closer touch with some than others.
+  // The default is a gentle weekly. See src/core/eligibility.ts (isPersonDue).
+  cadenceDays Int @default(7) @map("cadence_days")
+  // When the user last marked this person as contacted. Drives both the fair
+  // rotation (src/core/rotation.ts) and the per-relative due check: a
+  // never-contacted person (null) is always due and picked first; among
+  // contacted, the least-recently is next, and each is due again cadenceDays
+  // after their lastContactedAt.
   lastContactedAt DateTime? @map("last_contacted_at")
 
   createdAt DateTime @default(now()) @map("created_at")

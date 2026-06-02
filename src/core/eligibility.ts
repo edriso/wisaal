@@ -1,23 +1,27 @@
-// Whether a nudge is due for a user RIGHT NOW. Pure: the caller passes `now`,
-// and the timezone math comes from the shared kernel (getLocalContext), so
-// every branch is testable without a real clock.
+// Whether a nudge may go out, decided in two pure layers (both take `now`, so
+// every branch is testable without a real clock; the timezone math comes from
+// the shared kernel's getLocalContext):
 //
-// A nudge is due only when ALL of these hold:
-//   - the user is not paused and not blocked,
-//   - they are not currently snoozed (snoozeUntil is null or already passed),
-//   - the user's CURRENT LOCAL hour is OUTSIDE their quiet window, and
-//   - enough whole days have passed since the last nudge (cadence), or they
-//     have never been nudged.
+//   1. isUserAvailable — is the USER in a state to receive any nudge at all?
+//      i.e. not paused, not blocked, not currently snoozed, and the local clock
+//      is outside their quiet window.
+//   2. isPersonDue — is a given RELATIVE due, by THEIR own cadence? i.e. never
+//      contacted, or at least cadenceDays whole local days have passed since
+//      they were last contacted.
 //
-// Everything is decided in the user's own timezone so "every 3 days" and the
+// Splitting it this way is the heart of per-relative cadence: the user gate is
+// shared, but each relative becomes due on their own schedule. The scheduler
+// nudges only when the user is available AND at least one relative is due,
+// still at most one relative (and one nudge) per local day.
+//
+// Everything is decided in the user's own timezone so "every week" and the
 // quiet hours mean what the user expects no matter where the server runs.
 
 import { getLocalContext } from './schedule';
 
-/** The few user fields the eligibility check needs. */
+/** The few user fields the availability check needs. */
 export interface EligibilityUser {
   timezone: string;
-  cadenceDays: number;
   quietStartHour: number;
   quietEndHour: number;
   snoozeUntil: Date | null;
@@ -25,11 +29,24 @@ export interface EligibilityUser {
   blocked: boolean;
 }
 
-export interface IsNudgeDueArgs {
+export interface IsUserAvailableArgs {
   now: Date;
   user: EligibilityUser;
-  /** When the last nudge was sent; null = never nudged. */
-  lastNudgeAt: Date | null;
+}
+
+/** The few Person fields the per-relative due check needs. */
+export interface DueCandidate {
+  /** When this person was last marked contacted; null = never contacted. */
+  lastContactedAt: Date | null;
+  /** Whole local days to wait after a contact before this person is due again. */
+  cadenceDays: number;
+}
+
+export interface IsPersonDueArgs {
+  now: Date;
+  /** The user's IANA timezone — the cadence is measured in their local days. */
+  timezone: string;
+  person: DueCandidate;
 }
 
 /**
@@ -60,8 +77,13 @@ function wholeDaysBetween(a: string, b: string): number {
   return Math.round((bMs - aMs) / 86_400_000);
 }
 
-/** Decide whether to send a nudge to `user` at instant `now`. */
-export function isNudgeDue({ now, user, lastNudgeAt }: IsNudgeDueArgs): boolean {
+/**
+ * Is the user in a state to receive any nudge right now? (Not paused, not
+ * blocked, not currently snoozed, and outside their local quiet window.)
+ * Whether a specific relative is actually due is a separate question — see
+ * isPersonDue.
+ */
+export function isUserAvailable({ now, user }: IsUserAvailableArgs): boolean {
   if (user.paused || user.blocked) return false;
 
   // Snoozed and the snooze has not yet elapsed.
@@ -69,14 +91,22 @@ export function isNudgeDue({ now, user, lastNudgeAt }: IsNudgeDueArgs): boolean 
 
   const local = getLocalContext(user.timezone, now);
   const localHour = Math.floor(local.minutesSinceMidnight / 60);
-  if (isQuietHour(localHour, user.quietStartHour, user.quietEndHour)) return false;
+  return !isQuietHour(localHour, user.quietStartHour, user.quietEndHour);
+}
 
-  // Never nudged: due as soon as we are past quiet hours.
-  if (!lastNudgeAt) return true;
+/**
+ * Is this relative due, by their own cadence, at instant `now`?
+ *
+ * Due when never contacted, or when at least `cadenceDays` whole LOCAL calendar
+ * days have passed since the last contact (boundary inclusive: exactly N days
+ * is due). Measured in the user's timezone so the cadence means what they
+ * expect regardless of the server's clock.
+ */
+export function isPersonDue({ now, timezone, person }: IsPersonDueArgs): boolean {
+  // Never contacted: always due (and the rotation picks them first anyway).
+  if (person.lastContactedAt === null) return true;
 
-  // Cadence: compare the user's LOCAL calendar date of the last nudge with the
-  // local date now. The cadence is met when at least cadenceDays whole days
-  // have passed (boundary inclusive: exactly N days is due).
-  const lastLocal = getLocalContext(user.timezone, lastNudgeAt);
-  return wholeDaysBetween(lastLocal.date, local.date) >= user.cadenceDays;
+  const lastLocal = getLocalContext(timezone, person.lastContactedAt);
+  const nowLocal = getLocalContext(timezone, now);
+  return wholeDaysBetween(lastLocal.date, nowLocal.date) >= person.cadenceDays;
 }

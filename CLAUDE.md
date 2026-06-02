@@ -6,11 +6,12 @@ The aim is that a junior developer can read this and be productive.
 ## What this is
 
 Wisaal is a Telegram bot for **صلة الرحم** (keeping ties with relatives). For
-each user it keeps a private circle of relatives and, on the user's chosen
-cadence and outside their quiet hours, nudges them to reach out to ONE relative
-at a time — rotating fairly so no one is forgotten — with a warm, authentic
-encouragement. Arabic-only (modern standard Arabic, the same warm voice as the
-`ayah` and `tilawah` bots, NOT dialect).
+each user it keeps a private circle of relatives and, outside their quiet hours,
+nudges them to reach out to ONE relative at a time — rotating fairly so no one is
+forgotten — with a warm, authentic encouragement. Each relative has their OWN
+cadence (how often to be reminded about them, default weekly), so a user can keep
+in closer touch with some than others. Arabic-only (modern standard Arabic, the
+same warm voice as the `ayah` and `tilawah` bots, NOT dialect).
 
 It is one small TypeScript project, everything under `src/`:
 
@@ -33,19 +34,24 @@ pin here. The `ayah` and `tilawah` bots consume the same kernel.
 
 ## How a nudge gets decided
 
-Two pure functions in `src/core` carry the logic (both take `now` as an
+Three pure functions in `src/core` carry the logic (all take `now` as an
 argument, so every case is testable):
 
-1. `isNudgeDue({ now, user, lastNudgeAt })` (`eligibility.ts`) — due ONLY if the
-   user is not paused, not blocked, not currently snoozed, the user's local hour
-   is OUTSIDE their quiet window (which may wrap past midnight), AND enough whole
-   local days have passed since the last nudge (cadence; boundary inclusive), or
-   they were never nudged.
-2. `pickNextPerson(people, now?)` (`rotation.ts`) — the next relative is the one
+1. `isUserAvailable({ now, user })` (`eligibility.ts`) — is the USER in a state
+   to receive any nudge at all? True only if not paused, not blocked, not
+   currently snoozed, and the user's local hour is OUTSIDE their quiet window
+   (which may wrap past midnight).
+2. `isPersonDue({ now, timezone, person })` (`eligibility.ts`) — is a given
+   RELATIVE due, by THEIR own cadence? True if never contacted, or at least
+   `person.cadenceDays` whole LOCAL days have passed since `lastContactedAt`
+   (boundary inclusive). This is what makes cadence per-relative.
+3. `pickNextPerson(people, now?)` (`rotation.ts`) — the next relative is the one
    contacted longest ago; a never-contacted person always comes first; ties
    break by `createdAt` then `id`. It is `sortByContactPriority(people)[0]`:
    the same exported comparator `/list` renders by, so the top of the browse
-   list IS the next nudge — they can never disagree.
+   list IS the next nudge — they can never disagree. The scheduler picks the
+   first person in that order who is ALSO `isPersonDue` (see `buildNudgeView`'s
+   `dueOnly`); /now ignores due-ness and always surfaces the head of the order.
 
 The reminder paired with each nudge is chosen by `pickReminder(now, index?)`
 (`reminders.ts`), deterministic by UTC day.
@@ -55,9 +61,11 @@ The reminder paired with each nudge is chosen by `pickReminder(now, index?)`
 `deliverDueUsers` (in `src/lib/deliver.ts`) runs every minute from
 `scheduler.ts`. For each non-blocked user:
 
-1. `isNudgeDue` checks their timezone, quiet hours, cadence, pause, and snooze.
+1. `isUserAvailable` checks their timezone, quiet hours, pause, and snooze.
 2. If a nudge is already recorded for their local date, skip (the lock).
-3. `pickNextPerson` chooses the least-recently-contacted relative.
+3. `buildNudgeView(..., { dueOnly: true })` picks the first relative in rotation
+   order who is also `isPersonDue` by their own cadence; if nobody is due (all
+   contacted recently enough, or an empty circle) the user is left in peace.
 4. Build the message (`nudgeMessage` + `pickReminder`) and send plain text.
 5. On success, `claimNudge` records the nudge AND stamps `lastNudgeAt`, in one
    transaction. The `unique(userId, scheduledFor)` index is the idempotency lock
@@ -77,8 +85,10 @@ contacted, so the same person stays next.
 sorted by `sortByContactPriority` (most-due first), one tappable button per
 person (label = name · compact last-contacted), paginated `PAGE_SIZE` (8) at a
 time with «‹ السابق»/«التالي ›» (`tw:list:<page>`). Tapping a person
-(`tw:person:<id>`) edits the message into a detail card with «تواصلت»
-(`tw:pcontact:<id>`), «إزالة» (the shared `tw:rm:<id>` flow), and «‹ رجوع
+(`tw:person:<id>`) edits the message into a detail card (name · last-contacted ·
+their cadence) with «تواصلت» (`tw:pcontact:<id>`), «⏱️ كل كم نذكّرك؟»
+(`tw:pcad:<id>`, which opens a per-relative cadence picker whose options set
+`tw:pcadset:<id>:<days>`), «إزالة» (the shared `tw:rm:<id>` flow), and «‹ رجوع
 للقائمة». The detail «تواصلت» runs the SAME `markContacted` + `logAction`
 (`'contacted'`) as the nudge button — via the shared `recordContacted` helper —
 but deliberately does NOT `claimNudge`: it just records the good deed, so the

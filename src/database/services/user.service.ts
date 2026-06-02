@@ -7,9 +7,9 @@ export function getByTelegramId(telegramId: bigint) {
 
 /**
  * Make sure a user row exists for this Telegram user, creating it with the
- * default settings (every-three-days cadence, 22:00–08:00 quiet) on their
- * first message. Also clears `blocked`, because the user messaging the bot is
- * proof we can reach them again.
+ * default settings (22:00–08:00 quiet) on their first message. Also clears
+ * `blocked`, because the user messaging the bot is proof we can reach them
+ * again. (Cadence is per relative now — see Person.cadenceDays.)
  *
  * Uses an upsert so two messages arriving at once from a brand-new user can
  * never race into a duplicate-key error. Returns the user row.
@@ -38,7 +38,6 @@ export async function getOrCreateUser(telegramId: bigint, timezone?: string) {
 
 /** Settings the user can change. All optional; only the given ones are written. */
 export interface UserSettings {
-  cadenceDays?: number;
   quietStartHour?: number;
   quietEndHour?: number;
   timezone?: string;
@@ -53,16 +52,16 @@ export function updateSettings(userId: number, settings: UserSettings) {
  * Take or end an indefinite break. While paused the bot sends nothing and the
  * rotation does not advance, so resuming picks up exactly where they left off
  * (mirrors ayah's pause). `paused` on the User row is the single source of
- * truth; isNudgeDue already filters on it.
+ * truth; isUserAvailable already filters on it.
  */
 export function setPaused(userId: number, paused: boolean) {
   return prisma.user.update({ where: { id: userId }, data: { paused } });
 }
 
 /**
- * Snooze nudges until a moment in the future ("remind me later"). isNudgeDue
- * suppresses nudges while `snoozeUntil` is still ahead of now; once it passes,
- * the next due cycle nudges normally. Pass null to clear a snooze.
+ * Snooze nudges until a moment in the future ("remind me later").
+ * isUserAvailable suppresses nudges while `snoozeUntil` is still ahead of now;
+ * once it passes, the next due cycle nudges normally. Pass null to clear a snooze.
  */
 export function setSnooze(userId: number, until: Date | null) {
   return prisma.user.update({ where: { id: userId }, data: { snoozeUntil: until } });

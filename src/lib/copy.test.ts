@@ -17,10 +17,12 @@ describe('personLabel', () => {
 });
 
 describe('cadenceSummaryAr', () => {
-  it('reads daily, two-day, and weekly specially', () => {
+  it('reads the natural spans specially (daily, two-day, weekly, fortnightly, monthly)', () => {
     expect(cadenceSummaryAr(1)).toBe('كل يوم');
     expect(cadenceSummaryAr(2)).toBe('كل يومين');
     expect(cadenceSummaryAr(7)).toBe('كل أسبوع');
+    expect(cadenceSummaryAr(14)).toBe('كل أسبوعين');
+    expect(cadenceSummaryAr(30)).toBe('كل شهر');
   });
 
   it('falls back to a counted-days phrase otherwise', () => {

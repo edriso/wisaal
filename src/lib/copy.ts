@@ -32,12 +32,15 @@ export function personLabel(name: string, relation?: string | null): string {
   return relation ? `${relation} ${name}` : name;
 }
 
-/** Describe the cadence in friendly Arabic (1 = daily, 7 = weekly, else "every
- *  N days" with correct number-noun agreement). */
+/** Describe the cadence in friendly Arabic, with natural words for the common
+ *  spans (daily, weekly, fortnightly, monthly) and correct number-noun
+ *  agreement for the rest. */
 export function cadenceSummaryAr(cadenceDays: number): string {
   if (cadenceDays === 1) return 'كل يوم';
   if (cadenceDays === 2) return 'كل يومين';
   if (cadenceDays === 7) return 'كل أسبوع';
+  if (cadenceDays === 14) return 'كل أسبوعين';
+  if (cadenceDays === 30) return 'كل شهر';
   if (cadenceDays <= 10) return `كل ${toArabicDigits(cadenceDays)} أيام`;
   return `كل ${toArabicDigits(cadenceDays)} يومًا`;
 }
@@ -107,7 +110,6 @@ export function nudgeMessage(personDisplay: string, reminder: Reminder): string 
  * /settings. Cadence, quiet window, and timezone, each on its own line.
  */
 export function settingsSummary(user: {
-  cadenceDays: number;
   quietStartHour: number;
   quietEndHour: number;
   timezone: string;
@@ -115,9 +117,10 @@ export function settingsSummary(user: {
 }): string {
   const lines = [
     COPY.settingsHeader,
-    `• التذكير: ${cadenceSummaryAr(user.cadenceDays)}`,
     `• ${quietWindowAr(user.quietStartHour, user.quietEndHour)}`,
     `• المنطقة الزمنية: ${ltr(user.timezone)}`,
+    // Cadence is per relative — point the user to where it lives.
+    `• إيقاع التذكير لكل قريب يُضبط من ${ltr('/list')}`,
   ];
   if (user.paused) lines.push('• الحالة: التذكيرات متوقفة مؤقتًا ⏸️');
   return lines.join('\n');
@@ -137,7 +140,7 @@ export const COPY = {
   // Description = the text on the empty chat, shown before /start (limit 512).
   botDescription:
     'وِصَال يعينك على صِلة الرحم في زحمة الأيام.\n\n' +
-    'أضِف مَن تحبّ من أهلك، واختَر كل كم يومًا نُذكّرك، فيختار لك وِصَال في كل مرّة شخصًا واحدًا — الأحوج إلى تواصلك — برسالةٍ لطيفة وتذكيرٍ بفضل صِلة الرحم.\n\n' +
+    'أضِف مَن تحبّ من أهلك، وحدّد لكلٍّ منهم كل كم تحبّ أن نذكّرك بصلته (أسبوعيًّا ما لم تختر غير ذلك)، فيختار لك وِصَال في كل مرّة شخصًا واحدًا — الأحوج إلى تواصلك — برسالةٍ لطيفة وتذكيرٍ بفضل صِلة الرحم.\n\n' +
     'حين تتواصل، أخبِرنا بضغطة زر فينتقل إلى آخر الدور كي لا تنسى أحدًا. بلا عتابٍ ولا ضغط؛ مجرّد لمسةٍ تُقرّبك ممّن تحبّ.\n\n' +
     'اضغط /start لتبدأ 🤍',
 
@@ -183,11 +186,12 @@ export const COPY = {
   // have gone longest without reaching (never-contacted first) sits at the top —
   // framed as "who most needs your صلة", never as overdue/blame.
   listBrowseHeader:
-    'دائرتك — مرتّبة حسب الأحوج لصِلتك 🤍\n\nاضغط على أيّ اسم لرؤية تفاصيله، أو لتسجيل أنّك تواصلت معه.',
+    'دائرتك — مرتّبة حسب الأحوج لصِلتك 🤍\n\nاضغط على أيّ اسم لرؤية تفاصيله، أو لتسجيل أنّك تواصلت معه، أو لضبط كل كم نذكّرك بصلته.',
   // The detail card for one person: name (+ relation), then the full
-  // last-contacted phrase on its own line.
-  personDetail: (display: string, lastContacted: string) =>
-    `${display}\n\nآخر تواصل: ${lastContacted}`,
+  // last-contacted phrase and the per-relative reminder cadence, each on its
+  // own line.
+  personDetail: (display: string, lastContacted: string, cadence: string) =>
+    `${display}\n\nآخر تواصل: ${lastContacted}\nنذكّرك بصلته: ${cadence}`,
   // Warm ack after marking contacted proactively from the list (NOT a nudge
   // cycle — just recording the good deed). Mirrors the nudge `contacted` voice.
   contactedFromList: (display: string) =>
@@ -199,13 +203,16 @@ export const COPY = {
   btnBackToList: '‹ رجوع للقائمة',
   // Detail-card action buttons (the proactive «تواصلت» reuses the nudge label).
   btnRemovePerson: 'إزالة 🗑️',
+  btnPersonCadence: '⏱️ كل كم نذكّرك؟',
+  btnBackToPerson: '‹ رجوع',
+  // The per-relative cadence picker, opened from a person's card.
+  personCadencePrompt: (display: string) => `كل كم تحب أن نذكّرك بصلة ${display}؟`,
+  personCadenceUpdated: (display: string, summary: string) =>
+    `تمام، سنذكّرك بصلة ${display} ${summary} 🤍`,
 
-  // ─── Settings: cadence, quiet hours, timezone, pause ─────────────────
+  // ─── Settings: quiet hours, timezone, pause ──────────────────────────
   settingsHeader: 'إعداداتك الحالية:',
-  settingsCadenceBtn: '⏱️ كل كم يوم؟',
   settingsQuietBtn: '🌙 ساعات الهدوء',
-  cadencePrompt: 'كل كم يوم تحب أن نذكّرك؟',
-  cadenceUpdated: (summary: string) => `تم ضبط التذكير ${summary} ✅`,
   quietPrompt: 'في أي ساعات تحب ألّا تصلك التذكيرات؟',
   quietUpdated: (window: string) => `تم ضبط ${window} ✅`,
   tzUpdated: (tz: string) => `تم ضبط المنطقة الزمنية على ${ltr(tz)} ✅`,
@@ -255,10 +262,10 @@ export const COPY = {
     '',
     'الأوامر:',
     `${ltr('/add')} — إضافة شخص إلى دائرتك`,
-    `${ltr('/list')} — تصفّح دائرتك (مرتّبة حسب الأحوج لصلتك)، واطّلع على آخر تواصل وسجّل تواصلك بلمسة`,
+    `${ltr('/list')} — تصفّح دائرتك (مرتّبة حسب الأحوج لصلتك)، وسجّل تواصلك واضبط كل كم نذكّرك بكل قريب`,
     `${ltr('/remove')} — إزالة شخص من دائرتك`,
     `${ltr('/now')} — تذكير فوري بمن يأتي دوره`,
-    `${ltr('/settings')} — ضبط الإيقاع وساعات الهدوء`,
+    `${ltr('/settings')} — ضبط ساعات الهدوء`,
     `${ltr('/pause')} — إيقاف التذكيرات، و ${ltr('/resume')} للعودة`,
     `${ltr('/shukr')} — تدوين لحظة امتنان (اختياري)`,
     `${ltr('/forget')} — محو كل بياناتك`,

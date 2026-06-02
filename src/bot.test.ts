@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   addPerson: vi.fn(),
   removePerson: vi.fn(),
   markContacted: vi.fn(),
+  setPersonCadence: vi.fn(),
   setSnooze: vi.fn(),
   setPaused: vi.fn(),
   setShukrEnabled: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock('./database', () => ({
   addPerson: h.addPerson,
   removePerson: h.removePerson,
   markContacted: h.markContacted,
+  setPersonCadence: h.setPersonCadence,
   setSnooze: h.setSnooze,
   setPaused: h.setPaused,
   setShukrEnabled: h.setShukrEnabled,
@@ -98,6 +100,7 @@ beforeEach(() => {
     { id: 10, name: 'فاطمة', relation: 'خالتي', lastContactedAt: null, createdAt: new Date() },
   ]);
   h.markContacted.mockResolvedValue(true);
+  h.setPersonCadence.mockResolvedValue(true);
   h.removePerson.mockResolvedValue(true);
   h.claimNudge.mockResolvedValue('nudged');
   h.buildNudgeView.mockResolvedValue({
@@ -263,6 +266,7 @@ function people(n: number): Array<Record<string, unknown>> {
     id: i + 1,
     name: `شخص${i + 1}`,
     relation: null,
+    cadenceDays: 7,
     lastContactedAt: null,
     createdAt: new Date(2026, 0, i + 1), // earlier-added first
   }));
@@ -329,12 +333,47 @@ describe('/list interactive browser', () => {
     expect(data).not.toContain('tw:list:3'); // nothing past the last page
   });
 
-  it('tapping a person opens the detail card with contacted / remove / back', async () => {
+  it('tapping a person opens the detail card with contacted / cadence / remove / back', async () => {
     h.listPeople.mockResolvedValue(people(3));
     await bot.handleUpdate(callbackUpdate('tw:person:2'));
 
     const data = lastEditData();
-    expect(data).toEqual(['tw:pcontact:2', 'tw:rm:2', 'tw:list:1']);
+    expect(data).toEqual(['tw:pcontact:2', 'tw:pcad:2', 'tw:rm:2', 'tw:list:1']);
+    expect(answers().length).toBe(1);
+  });
+
+  it('opens the per-relative cadence picker, marking the current option', async () => {
+    h.listPeople.mockResolvedValue(people(3)); // all default cadenceDays 7
+    await bot.handleUpdate(callbackUpdate('tw:pcad:2'));
+
+    const data = lastEditData();
+    // One set-button per option (id 2), plus a back-to-detail row.
+    expect(data).toEqual([
+      'tw:pcadset:2:1',
+      'tw:pcadset:2:3',
+      'tw:pcadset:2:7',
+      'tw:pcadset:2:14',
+      'tw:pcadset:2:30',
+      'tw:person:2',
+    ]);
+    expect(answers().length).toBe(1);
+  });
+
+  it('setting a relative’s cadence calls setPersonCadence once and returns to the card', async () => {
+    h.listPeople.mockResolvedValue(people(3));
+    await bot.handleUpdate(callbackUpdate('tw:pcadset:2:30'));
+
+    expect(h.setPersonCadence).toHaveBeenCalledTimes(1);
+    expect(h.setPersonCadence).toHaveBeenCalledWith(1, 2, 30);
+    // Back on the detail card (its full action row) after saving.
+    expect(lastEditData()).toEqual(['tw:pcontact:2', 'tw:pcad:2', 'tw:rm:2', 'tw:list:1']);
+    expect(answers().length).toBe(1);
+  });
+
+  it('ignores an out-of-range cadence value without writing', async () => {
+    h.listPeople.mockResolvedValue(people(3));
+    await bot.handleUpdate(callbackUpdate('tw:pcadset:2:99'));
+    expect(h.setPersonCadence).not.toHaveBeenCalled();
     expect(answers().length).toBe(1);
   });
 
