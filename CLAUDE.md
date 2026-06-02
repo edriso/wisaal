@@ -97,6 +97,18 @@ but deliberately does NOT `claimNudge`: it just records the good deed, so the
 daily nudge keeps its own rhythm. Because both the list and the rotation sort by
 `lastContactedAt`, marking contacted drops that person to the back of both.
 
+`/shukr` is an OPT-IN gratitude journal (off by default, `User.shukrEnabled`).
+Before it is enabled, `/shukr` shows an intro + an enable button. Once enabled it
+is a browser just like `/list`: `/shukr` lists the user's notes newest-first
+(`tw:shukr:e:<id>` per entry, paginated with `tw:shukr:p:<page>`), tapping one
+opens a detail card with the full note + «حذف» (`tw:shukr:rm:<id>`) and a
+back-to-journal button, and a footer offers «➕ أضف لحظة شكر» (`tw:shukr:add`,
+which arms the next plain message as a note) and «إيقاف الدفتر» (the
+`tw:shukr:toggle`). Notes can also be added inline with `/shukr <text>`. Entries
+are short, encouraging text only — never surfaced as pressure; deleting is the
+only edit (re-add to change one). The service is `shukr.service.ts`
+(`addShukr` / `listShukr` / `removeShukr`).
+
 The visible commands and their handlers live in `src/bot.ts`; the inline
 keyboards (and their callback-data prefixes) live in `src/lib/keyboards.ts`; the
 bare-text pending-input flows (the `/add` name, the `/shukr` note) live in

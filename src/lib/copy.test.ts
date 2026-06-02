@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { nudgeMessage, personLabel, cadenceSummaryAr, settingsSummary, COPY } from './copy';
+import {
+  nudgeMessage,
+  personLabel,
+  cadenceSummaryAr,
+  settingsSummary,
+  shortDateAr,
+  shukrPreview,
+  COPY,
+} from './copy';
 import type { Reminder } from '../database/reference/reminders';
 
 const withSource: Reminder = { text: 'متن التذكير.', source: 'البخاري ٠' };
@@ -72,6 +80,27 @@ describe('settingsSummary', () => {
   it('notes a paused state only when paused', () => {
     expect(settingsSummary(base)).not.toContain('متوقفة');
     expect(settingsSummary({ ...base, paused: true })).toContain('متوقفة');
+  });
+});
+
+describe('shortDateAr', () => {
+  it('formats the local date in Arabic-Indic digits, padded', () => {
+    // 10:00 UTC on 2026-06-03 is still 2026-06-03 in Cairo (UTC+2).
+    const out = shortDateAr(new Date('2026-06-03T10:00:00Z'), 'Africa/Cairo');
+    expect(out).toContain('٢٠٢٦/٠٦/٠٣'); // zeros preserved, slashes between parts
+  });
+});
+
+describe('shukrPreview', () => {
+  it('keeps a short note as-is (collapsing whitespace)', () => {
+    expect(shukrPreview('  وصلتُ   خالتي  ')).toBe('وصلتُ خالتي');
+  });
+
+  it('truncates a long note with an ellipsis', () => {
+    const long = 'ا'.repeat(50);
+    const out = shukrPreview(long);
+    expect(out.endsWith('…')).toBe(true);
+    expect(out.length).toBeLessThanOrEqual(30);
   });
 });
 
