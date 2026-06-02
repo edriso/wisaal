@@ -1,6 +1,6 @@
 import { InlineKeyboard } from 'grammy';
 import { toArabicDigits } from '../core';
-import { COPY, cadenceSummaryAr } from './copy';
+import { COPY, cadenceSummaryAr, personLabel, lastContactedCompactAr } from './copy';
 import type { RotationPerson } from '../database';
 
 // ─── Callback-data namespaces ───────────────────────────────────────
@@ -16,6 +16,19 @@ export const ACTION_SKIP = 'skip';
 
 // Remove-person buttons, e.g. "tw:rm:42".
 export const REMOVE_PREFIX = 'tw:rm:';
+
+// The interactive /list browser. A page button carries the page number,
+// e.g. "tw:list:2"; a person button carries the person id, e.g.
+// "tw:person:42". Both stay tiny, well inside Telegram's 64-byte limit.
+export const LIST_PAGE_PREFIX = 'tw:list:';
+export const PERSON_PREFIX = 'tw:person:';
+// Marking contacted from the detail card. It runs the SAME markContacted +
+// logAction('contacted') as the nudge button, but its own callback lets the
+// handler render the detail-flavoured ack (with a back-to-list button) instead
+// of the nudge reply — and it deliberately does NOT claim a nudge cycle.
+export const PERSON_CONTACTED_PREFIX = 'tw:pcontact:';
+// At most this many person-buttons per page; more spills onto further pages.
+export const PAGE_SIZE = 8;
 
 // Cadence picker, e.g. "tw:cad:3".
 export const CADENCE_PREFIX = 'tw:cad:';
@@ -61,6 +74,61 @@ export function buildRemoveKeyboard(people: readonly RotationPerson[]): InlineKe
     kb.text(label, `${REMOVE_PREFIX}${person.id}`).row();
   }
   return kb;
+}
+
+/**
+ * The interactive /list keyboard: one button per person on the given page,
+ * labelled «{name} · {compact last-contacted}», followed by a pagination row
+ * with only the arrows that apply. `people` is expected pre-sorted
+ * (sortByContactPriority) so the most-due relative sits at the top. `now` and
+ * `timezone` are passed in (no clock here) so the compact phrase is testable.
+ */
+export function buildPeopleListKeyboard(
+  people: readonly RotationPerson[],
+  page: number,
+  pageSize: number,
+  timezone: string,
+  now: Date,
+): InlineKeyboard {
+  const pageCount = Math.max(1, Math.ceil(people.length / pageSize));
+  // Clamp so a stale/edge page number can never read past the array.
+  const safePage = Math.min(Math.max(1, page), pageCount);
+  const start = (safePage - 1) * pageSize;
+  const slice = people.slice(start, start + pageSize);
+
+  const kb = new InlineKeyboard();
+  for (const person of slice) {
+    const label = `${personLabel(person.name, person.relation)} · ${lastContactedCompactAr(
+      person.lastContactedAt,
+      timezone,
+      now,
+    )}`;
+    kb.text(label, `${PERSON_PREFIX}${person.id}`).row();
+  }
+
+  // Bottom nav: «‹ السابق» on the left, «التالي ›» on the right, each only when
+  // there is somewhere to go.
+  if (safePage > 1) kb.text(COPY.btnPrevPage, `${LIST_PAGE_PREFIX}${safePage - 1}`);
+  if (safePage < pageCount) kb.text(COPY.btnNextPage, `${LIST_PAGE_PREFIX}${safePage + 1}`);
+  return kb;
+}
+
+/**
+ * The per-person detail card keyboard: mark contacted (reuses the nudge
+ * «تواصلت» action so the same person is recorded), remove, and back to the list.
+ */
+export function buildPersonDetailKeyboard(personId: number): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(COPY.btnContacted, `${PERSON_CONTACTED_PREFIX}${personId}`)
+    .row()
+    .text(COPY.btnRemovePerson, `${REMOVE_PREFIX}${personId}`)
+    .row()
+    .text(COPY.btnBackToList, `${LIST_PAGE_PREFIX}1`);
+}
+
+/** A lone «‹ رجوع للقائمة» row, shown after acting from the detail card. */
+export function buildBackToListKeyboard(): InlineKeyboard {
+  return new InlineKeyboard().text(COPY.btnBackToList, `${LIST_PAGE_PREFIX}1`);
 }
 
 /** The cadence picker: daily / every three days / weekly. */

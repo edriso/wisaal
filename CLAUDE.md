@@ -43,7 +43,9 @@ argument, so every case is testable):
    they were never nudged.
 2. `pickNextPerson(people, now?)` (`rotation.ts`) — the next relative is the one
    contacted longest ago; a never-contacted person always comes first; ties
-   break by `createdAt` then `id`.
+   break by `createdAt` then `id`. It is `sortByContactPriority(people)[0]`:
+   the same exported comparator `/list` renders by, so the top of the browse
+   list IS the next nudge — they can never disagree.
 
 The reminder paired with each nudge is chosen by `pickReminder(now, index?)`
 (`reminders.ts`), deterministic by UTC day.
@@ -70,6 +72,18 @@ so the scheduler then skips them — mirroring ayah's `/today`. The rotation onl
 advances when the user taps «تواصلت ✅» (sets `lastContactedAt = now`), which
 naturally moves that person to the back; «تخطّي» and «فكّرني بعدين» never mark
 contacted, so the same person stays next.
+
+`/list` is an interactive browser, not static text: it renders the circle
+sorted by `sortByContactPriority` (most-due first), one tappable button per
+person (label = name · compact last-contacted), paginated `PAGE_SIZE` (8) at a
+time with «‹ السابق»/«التالي ›» (`tw:list:<page>`). Tapping a person
+(`tw:person:<id>`) edits the message into a detail card with «تواصلت»
+(`tw:pcontact:<id>`), «إزالة» (the shared `tw:rm:<id>` flow), and «‹ رجوع
+للقائمة». The detail «تواصلت» runs the SAME `markContacted` + `logAction`
+(`'contacted'`) as the nudge button — via the shared `recordContacted` helper —
+but deliberately does NOT `claimNudge`: it just records the good deed, so the
+daily nudge keeps its own rhythm. Because both the list and the rotation sort by
+`lastContactedAt`, marking contacted drops that person to the back of both.
 
 The visible commands and their handlers live in `src/bot.ts`; the inline
 keyboards (and their callback-data prefixes) live in `src/lib/keyboards.ts`; the

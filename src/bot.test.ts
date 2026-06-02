@@ -254,6 +254,122 @@ describe('/remove buttons', () => {
   });
 });
 
+// ─── Interactive /list browser + person detail ─────────────────────────
+
+// Build N people, oldest-added first, all never-contacted unless overridden,
+// so the natural sort is neglected-first (createdAt tie-break) → id order.
+function people(n: number): Array<Record<string, unknown>> {
+  return Array.from({ length: n }, (_, i) => ({
+    id: i + 1,
+    name: `شخص${i + 1}`,
+    relation: null,
+    lastContactedAt: null,
+    createdAt: new Date(2026, 0, i + 1), // earlier-added first
+  }));
+}
+
+// The buttons (callback_data) in the last sent message's inline keyboard.
+function lastKeyboardData(): string[] {
+  const send = sends().at(-1)!;
+  const markup = send.payload.reply_markup as {
+    inline_keyboard: Array<Array<{ callback_data: string }>>;
+  };
+  return markup.inline_keyboard.flat().map((b) => b.callback_data);
+}
+function lastEditData(): string[] {
+  const edit = apiCalls.filter((c) => c.method === 'editMessageText').at(-1)!;
+  const markup = edit.payload.reply_markup as {
+    inline_keyboard: Array<Array<{ callback_data: string }>>;
+  };
+  return markup.inline_keyboard.flat().map((b) => b.callback_data);
+}
+
+describe('/list interactive browser', () => {
+  it('renders people sorted neglected-first as one button each (no pagination row for few)', async () => {
+    h.listPeople.mockResolvedValue(people(3));
+    await bot.handleUpdate(textUpdate('/list'));
+
+    const data = lastKeyboardData();
+    // One person-button each, most-due first (all never-contacted → createdAt
+    // order → ids 1,2,3), and no pagination arrows for a single page.
+    expect(data).toEqual(['tw:person:1', 'tw:person:2', 'tw:person:3']);
+    // Every callback stays well within Telegram's 64-byte limit.
+    for (const d of data) expect(Buffer.byteLength(d, 'utf8')).toBeLessThanOrEqual(64);
+  });
+
+  it('a contacted person sinks below the never-contacted ones', async () => {
+    const list = people(2);
+    list[0].lastContactedAt = new Date(2026, 4, 1); // person 1 was contacted
+    h.listPeople.mockResolvedValue(list);
+    await bot.handleUpdate(textUpdate('/list'));
+    // Never-contacted person 2 now leads; contacted person 1 sinks.
+    expect(lastKeyboardData()).toEqual(['tw:person:2', 'tw:person:1']);
+  });
+
+  it('paginates at PAGE_SIZE (8) and shows only the «next» arrow on page 1', async () => {
+    h.listPeople.mockResolvedValue(people(10));
+    await bot.handleUpdate(textUpdate('/list'));
+
+    const data = lastKeyboardData();
+    const persons = data.filter((d) => d.startsWith('tw:person:'));
+    expect(persons).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map((i) => `tw:person:${i}`));
+    // Page 1 of 2: forward only, no «previous».
+    expect(data).toContain('tw:list:2');
+    expect(data).not.toContain('tw:list:0');
+  });
+
+  it('page 2 shows the remaining slice and only the «previous» arrow', async () => {
+    h.listPeople.mockResolvedValue(people(10));
+    await bot.handleUpdate(callbackUpdate('tw:list:2'));
+
+    const data = lastEditData();
+    const persons = data.filter((d) => d.startsWith('tw:person:'));
+    expect(persons).toEqual(['tw:person:9', 'tw:person:10']);
+    expect(data).toContain('tw:list:1'); // back to page 1
+    expect(data).not.toContain('tw:list:3'); // nothing past the last page
+  });
+
+  it('tapping a person opens the detail card with contacted / remove / back', async () => {
+    h.listPeople.mockResolvedValue(people(3));
+    await bot.handleUpdate(callbackUpdate('tw:person:2'));
+
+    const data = lastEditData();
+    expect(data).toEqual(['tw:pcontact:2', 'tw:rm:2', 'tw:list:1']);
+    expect(answers().length).toBe(1);
+  });
+
+  it('«تواصلت» from the detail marks contacted exactly once and offers back-to-list', async () => {
+    h.listPeople.mockResolvedValue(people(3));
+    await bot.handleUpdate(callbackUpdate('tw:pcontact:2'));
+
+    // The heart of the guard: ONE mark, ONE log, ONE answer — no double-call,
+    // no recursion into the nudge contacted handler, and NO nudge-cycle claim.
+    expect(h.markContacted).toHaveBeenCalledTimes(1);
+    expect(h.markContacted).toHaveBeenCalledWith(1, 2, expect.any(Date));
+    expect(h.logAction).toHaveBeenCalledTimes(1);
+    expect(h.logAction).toHaveBeenCalledWith(1, 2, 'contacted');
+    expect(h.claimNudge).not.toHaveBeenCalled();
+    expect(answers().length).toBe(1);
+    // The ack edit carries a back-to-list button.
+    expect(lastEditData()).toEqual(['tw:list:1']);
+  });
+
+  it('«رجوع» re-renders the list at page 1', async () => {
+    h.listPeople.mockResolvedValue(people(3));
+    await bot.handleUpdate(callbackUpdate('tw:list:1'));
+    expect(lastEditData()).toEqual(['tw:person:1', 'tw:person:2', 'tw:person:3']);
+    expect(answers().length).toBe(1);
+  });
+
+  it('removing from the detail calls removePerson once', async () => {
+    h.listPeople.mockResolvedValue(people(3));
+    await bot.handleUpdate(callbackUpdate('tw:rm:2'));
+    expect(h.removePerson).toHaveBeenCalledTimes(1);
+    expect(h.removePerson).toHaveBeenCalledWith(1, 2);
+    expect(answers().length).toBe(1);
+  });
+});
+
 describe('parsePersonInput', () => {
   it('treats a single word as a bare name', () => {
     expect(parsePersonInput('فاطمة')).toEqual({ name: 'فاطمة', relation: null });

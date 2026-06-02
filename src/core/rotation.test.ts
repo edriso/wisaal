@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickNextPerson, type RotationCandidate } from './rotation';
+import { pickNextPerson, sortByContactPriority, type RotationCandidate } from './rotation';
 
 // Small helper to build a candidate tersely. createdAt defaults to a fixed
 // epoch so tests that don't care about it stay readable.
@@ -92,6 +92,59 @@ describe('pickNextPerson', () => {
     const list = [person(1, D('2026-05-01T00:00:00Z')), person(2, null)];
     const copy = [...list];
     pickNextPerson(list);
+    expect(list).toEqual(copy);
+  });
+});
+
+describe('sortByContactPriority', () => {
+  it('returns an empty array for an empty list', () => {
+    expect(sortByContactPriority([])).toEqual([]);
+  });
+
+  it('puts never-contacted people first, then least-recently contacted', () => {
+    const recent = person(1, D('2026-05-30T00:00:00Z'));
+    const neverA = person(2, null, D('2026-01-02T00:00:00Z'));
+    const oldest = person(3, D('2026-01-15T00:00:00Z'));
+    const neverB = person(4, null, D('2026-01-01T00:00:00Z'));
+    const order = sortByContactPriority([recent, neverA, oldest, neverB]).map((p) => p.id);
+    // Never-contacted block first (older createdAt first within it), then the
+    // contacted block oldest-first.
+    expect(order).toEqual([4, 2, 3, 1]);
+  });
+
+  it('orders contacted people oldest-first', () => {
+    const recent = person(1, D('2026-05-30T00:00:00Z'));
+    const oldest = person(2, D('2026-01-15T00:00:00Z'));
+    const middle = person(3, D('2026-03-01T00:00:00Z'));
+    expect(sortByContactPriority([recent, oldest, middle]).map((p) => p.id)).toEqual([2, 3, 1]);
+  });
+
+  it('breaks ties by older createdAt then smaller id', () => {
+    const t = D('2026-04-01T00:00:00Z');
+    const created = D('2026-01-01T00:00:00Z');
+    const laterCreated = person(1, t, D('2026-02-01T00:00:00Z'));
+    const idHigh = person(7, t, created);
+    const idLow = person(3, t, created);
+    // Same lastContacted: earlier createdAt wins; within identical createdAt the
+    // smaller id wins.
+    expect(sortByContactPriority([laterCreated, idHigh, idLow]).map((p) => p.id)).toEqual([
+      3, 7, 1,
+    ]);
+  });
+
+  it('agrees with pickNextPerson: the head is the next pick', () => {
+    const people = [
+      person(1, D('2026-05-30T00:00:00Z')),
+      person(2, null, D('2026-01-02T00:00:00Z')),
+      person(3, D('2026-01-15T00:00:00Z')),
+    ];
+    expect(sortByContactPriority(people)[0].id).toBe(pickNextPerson(people)!.id);
+  });
+
+  it('does not mutate the input list', () => {
+    const list = [person(1, D('2026-05-01T00:00:00Z')), person(2, null)];
+    const copy = [...list];
+    sortByContactPriority(list);
     expect(list).toEqual(copy);
   });
 });

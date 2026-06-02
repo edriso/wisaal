@@ -66,6 +66,25 @@ export function lastContactedAr(lastContactedAt: Date | null, timezone: string, 
   return COPY.lastContactedAgo(unit);
 }
 
+/** A SHORT last-contacted phrase for an inline button label (kept compact so
+ *  the button stays on one line): "لم تتواصل بعد" / "اليوم" / "قبل ٣ أيام".
+ *  Same day math as lastContactedAr, just terser. */
+export function lastContactedCompactAr(
+  lastContactedAt: Date | null,
+  timezone: string,
+  now: Date,
+): string {
+  if (lastContactedAt === null) return COPY.lastContactedNever;
+  const days = localDaysBetween(timezone, lastContactedAt, now);
+  if (days <= 0) return COPY.lastContactedTodayCompact;
+  let unit: string;
+  if (days === 1) unit = 'يوم';
+  else if (days === 2) unit = 'يومين';
+  else if (days <= 10) unit = `${toArabicDigits(days)} أيام`;
+  else unit = `${toArabicDigits(days)} يومًا`;
+  return `قبل ${unit}`;
+}
+
 /**
  * The daily nudge. A gentle opening line, then the relative's name, a blank
  * line, then the encouragement (with its source if it carries one). Plain text
@@ -141,15 +160,34 @@ export const COPY = {
   addEmpty: 'لم أتمكن من قراءة الاسم. حاول مرة أخرى بكتابة الاسم فقط.',
   addedOne: (display: string) => `أضفتُ ${display} إلى دائرتك 🤍`,
   listEmpty: `دائرتك فارغة حتى الآن. أضف أول شخص بـ ${ltr('/add')} لتبدأ صلة الرحم.`,
-  listHeader: 'دائرتك (مَن نذكّرك بصلتهم):',
-  // One line per person in /list: the name, and when they were last reached.
-  listLine: (display: string, lastContacted: string) => `• ${display} — ${lastContacted}`,
   lastContactedNever: 'لم تتواصل بعد',
   lastContactedAgo: (daysAr: string) => `آخر تواصل قبل ${daysAr}`,
   lastContactedToday: 'تواصلت اليوم',
+  lastContactedTodayCompact: 'اليوم',
   removePrompt: 'اختر من تريد إزالته من دائرتك.',
   removeEmpty: 'دائرتك فارغة، فلا أحد لإزالته.',
   removedOne: (display: string) => `أزلتُ ${display} من دائرتك.`,
+
+  // ─── /list — the interactive, sorted, paginated browser ──────────────
+  // Header for the people list. The note explains the order gently: whoever you
+  // have gone longest without reaching (never-contacted first) sits at the top —
+  // framed as "who most needs your صلة", never as overdue/blame.
+  listBrowseHeader: 'دائرتك — مرتّبة حسب الأحوج لصلتك 🤍',
+  // The detail card for one person: name (+ relation), then the full
+  // last-contacted phrase on its own line.
+  personDetail: (display: string, lastContacted: string) =>
+    `${display}\n\nآخر تواصل: ${lastContacted}`,
+  // Warm ack after marking contacted proactively from the list (NOT a nudge
+  // cycle — just recording the good deed). Mirrors the nudge `contacted` voice.
+  contactedFromList: (display: string) =>
+    `جزاك الله خيرًا 🤍 سجّلتُ تواصلك مع ${display}. جعلها الله صلةً موصولة.`,
+  // Pagination + back labels. Arrows point the natural RTL way (‹ = next page in
+  // reading flow); the text spells the direction so it stays clear.
+  btnPrevPage: '‹ السابق',
+  btnNextPage: 'التالي ›',
+  btnBackToList: '‹ رجوع للقائمة',
+  // Detail-card action buttons (the proactive «تواصلت» reuses the nudge label).
+  btnRemovePerson: 'إزالة 🗑️',
 
   // ─── Settings: cadence, quiet hours, timezone, pause ─────────────────
   settingsHeader: 'إعداداتك الحالية:',
@@ -206,7 +244,7 @@ export const COPY = {
     '',
     'الأوامر:',
     `${ltr('/add')} — إضافة شخص إلى دائرتك`,
-    `${ltr('/list')} — عرض دائرتك`,
+    `${ltr('/list')} — تصفّح دائرتك (مرتّبة حسب الأحوج لصلتك)، واطّلع على آخر تواصل وسجّل تواصلك بلمسة`,
     `${ltr('/remove')} — إزالة شخص من دائرتك`,
     `${ltr('/now')} — تذكير فوري بمن يأتي دوره`,
     `${ltr('/settings')} — ضبط الإيقاع وساعات الهدوء`,

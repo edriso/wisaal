@@ -26,11 +26,15 @@ import {
   quietWindowAr,
   cadenceSummaryAr,
 } from './lib/copy';
+import { sortByContactPriority } from './core';
 import { buildNudgeView, type NudgeUser } from './lib/deliver';
 import { runNudgeOnce } from './scheduler';
 import {
   buildNudgeKeyboard,
   buildRemoveKeyboard,
+  buildPeopleListKeyboard,
+  buildPersonDetailKeyboard,
+  buildBackToListKeyboard,
   buildCadenceKeyboard,
   buildQuietKeyboard,
   buildSettingsKeyboard,
@@ -41,6 +45,10 @@ import {
   ACTION_SNOOZE,
   ACTION_SKIP,
   REMOVE_PREFIX,
+  LIST_PAGE_PREFIX,
+  PERSON_PREFIX,
+  PERSON_CONTACTED_PREFIX,
+  PAGE_SIZE,
   CADENCE_PREFIX,
   CADENCE_OPTIONS,
   QUIET_PREFIX,
@@ -184,7 +192,9 @@ bot.command('add', async (ctx) => {
   await ctx.reply(COPY.addedOne(personLabel(parsed.name, parsed.relation)));
 });
 
-// /list: the user's circle plus when they last reached out to each.
+// /list: the interactive browser — the circle sorted by who most needs صلة,
+// one tappable button per person (with their last contact), paginated. Tapping
+// a person opens a detail card you can act from.
 bot.command('list', async (ctx) => {
   const user = await userFor(ctx);
   if (!user) return;
@@ -193,14 +203,11 @@ bot.command('list', async (ctx) => {
     await ctx.reply(COPY.listEmpty);
     return;
   }
-  const now = new Date();
-  const lines = people.map((p) =>
-    COPY.listLine(
-      personLabel(p.name, p.relation),
-      lastContactedAr(p.lastContactedAt, user.timezone, now),
-    ),
-  );
-  await ctx.reply([COPY.listHeader, '', ...lines].join('\n'));
+  // Same comparator the nudge uses, so the top of the list IS the next nudge.
+  const sorted = sortByContactPriority(people);
+  await ctx.reply(COPY.listBrowseHeader, {
+    reply_markup: buildPeopleListKeyboard(sorted, 1, PAGE_SIZE, user.timezone, new Date()),
+  });
 });
 
 // /remove: inline buttons to pick whom to remove.
@@ -290,6 +297,22 @@ bot.command('forget', async (ctx) => {
 
 // ─── Nudge action buttons ────────────────────────────────────────────
 
+/**
+ * The one place contacting is recorded: mark contacted now (which moves the
+ * person to the back of BOTH the list and the rotation, since both sort by
+ * lastContactedAt) and log it. Deliberately does NOT claim a nudge cycle, so
+ * the daily nudge keeps its own rhythm — this is just recording a good deed.
+ * Shared by the nudge «تواصلت» and the /list detail «تواصلت». Returns the
+ * person if the row was found (for a personalised ack), else null.
+ */
+async function recordContacted(userId: number, personId: number): Promise<RotationPerson | null> {
+  const updated = await markContacted(userId, personId, new Date());
+  if (!updated) return null;
+  await logAction(userId, personId, 'contacted');
+  const people = await listPeople(userId);
+  return people.find((p) => p.id === personId) ?? null;
+}
+
 // «تواصلت ✅» — mark contacted now (moves them to the back of the rotation
 // naturally) and acknowledge warmly. ONE markContacted, ONE answer.
 bot.callbackQuery(new RegExp(`^${ACTION_PREFIX}${ACTION_CONTACTED}:(\\d+)$`), async (ctx) => {
@@ -299,8 +322,7 @@ bot.callbackQuery(new RegExp(`^${ACTION_PREFIX}${ACTION_CONTACTED}:(\\d+)$`), as
     return;
   }
   const personId = Number(ctx.match![1]);
-  const updated = await markContacted(user.id, personId, new Date());
-  if (updated) await logAction(user.id, personId, 'contacted');
+  await recordContacted(user.id, personId);
   await ctx.editMessageReplyMarkup().catch(ignoreNotModified); // drop the buttons
   await ctx.reply(COPY.contacted);
   await ctx.answerCallbackQuery();
@@ -352,6 +374,82 @@ bot.callbackQuery(new RegExp(`^${REMOVE_PREFIX}(\\d+)$`), async (ctx) => {
   if (removed && target) {
     await ctx.reply(COPY.removedOne(personLabel(target.name, target.relation)));
   }
+  await ctx.answerCallbackQuery();
+});
+
+// ─── Interactive /list browser + person detail ───────────────────────
+
+/** Re-render the list message in place at the given page (1-based). Used by
+ *  pagination and by «‹ رجوع للقائمة». Falls back to the empty copy if the
+ *  circle became empty (e.g. the last person was just removed). */
+async function renderListPage(ctx: Context, user: User, page: number): Promise<void> {
+  const people = await listPeople(user.id);
+  if (people.length === 0) {
+    await ctx.editMessageText(COPY.listEmpty).catch(ignoreNotModified);
+    return;
+  }
+  const sorted = sortByContactPriority(people);
+  await ctx
+    .editMessageText(COPY.listBrowseHeader, {
+      reply_markup: buildPeopleListKeyboard(sorted, page, PAGE_SIZE, user.timezone, new Date()),
+    })
+    .catch(ignoreNotModified);
+}
+
+// «‹ السابق» / «التالي ›» and «‹ رجوع للقائمة» (page 1): paginate / return.
+bot.callbackQuery(new RegExp(`^${LIST_PAGE_PREFIX}(\\d+)$`), async (ctx) => {
+  const user = await userFor(ctx);
+  if (!user) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  await renderListPage(ctx, user, Number(ctx.match![1]));
+  await ctx.answerCallbackQuery();
+});
+
+// Tap a person → edit the message into their detail card with quick actions.
+bot.callbackQuery(new RegExp(`^${PERSON_PREFIX}(\\d+)$`), async (ctx) => {
+  const user = await userFor(ctx);
+  if (!user) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  const personId = Number(ctx.match![1]);
+  const people = await listPeople(user.id);
+  const person = people.find((p) => p.id === personId);
+  if (!person) {
+    // Removed elsewhere meanwhile: drop back to the list rather than error.
+    await renderListPage(ctx, user, 1);
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  const card = COPY.personDetail(
+    personLabel(person.name, person.relation),
+    lastContactedAr(person.lastContactedAt, user.timezone, new Date()),
+  );
+  await ctx
+    .editMessageText(card, { reply_markup: buildPersonDetailKeyboard(personId) })
+    .catch(ignoreNotModified);
+  await ctx.answerCallbackQuery();
+});
+
+// «تواصلت ✅» from the detail card. Records the contact through the SAME clean
+// markContacted + logAction path (NO nudge-cycle claim), then edits to a warm
+// ack with a back-to-list button. ONE markContacted, ONE answer.
+bot.callbackQuery(new RegExp(`^${PERSON_CONTACTED_PREFIX}(\\d+)$`), async (ctx) => {
+  const user = await userFor(ctx);
+  if (!user) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  const personId = Number(ctx.match![1]);
+  const person = await recordContacted(user.id, personId);
+  const display = person ? personLabel(person.name, person.relation) : '';
+  await ctx
+    .editMessageText(COPY.contactedFromList(display), {
+      reply_markup: buildBackToListKeyboard(),
+    })
+    .catch(ignoreNotModified);
   await ctx.answerCallbackQuery();
 });
 

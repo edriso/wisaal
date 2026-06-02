@@ -41,13 +41,20 @@ When a nudge arrives it carries three inline buttons:
 - **«فكّرني بعدين ⏰»** — snooze about a day; the next cycle is skipped softly.
 - **«تخطّي»** — skip this one with no pressure; the same person stays next.
 
+`/list` is an interactive browser of your circle, sorted by who you have gone
+longest without reaching (the same order the nudge picks). Tap a name to open a
+small detail card — their relation and last contact — where you can mark
+«تواصلت ✅» proactively (which records the contact and drops them to the back of
+both the list and the rotation, without touching the daily nudge rhythm) or
+remove them. Long circles paginate eight at a time.
+
 ## Commands
 
 | Command     | What it does                                       |
 | ----------- | -------------------------------------------------- |
 | `/start`    | Warm onboarding + privacy note; prompts you to add |
 | `/add`      | `/add <name> [relation]`, or send the name next    |
-| `/list`     | Your circle + when you last reached out to each    |
+| `/list`     | Interactive, sorted browser of your circle (most-due first); tap a name to see their last contact and mark «تواصلت» or remove — paginated |
 | `/remove`   | Inline buttons to remove someone                   |
 | `/now`      | Nudge me right now about whoever is next           |
 | `/settings` | Cadence, quiet hours, and pause/resume (buttons)   |

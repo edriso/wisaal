@@ -36,9 +36,20 @@ export function pickNextPerson<T extends RotationCandidate>(
   people: readonly T[],
   _now?: Date,
 ): T | null {
-  if (people.length === 0) return null;
+  // The pick is just the head of the priority order. Sharing one comparator
+  // with sortByContactPriority guarantees /list and the nudge agree on who is
+  // most due — the list never points somewhere different from the next nudge.
+  return sortByContactPriority(people)[0] ?? null;
+}
 
-  return people.reduce((best, candidate) => (isMoreDue(candidate, best) ? candidate : best));
+/**
+ * Sort `people` most-due first, by the same rules pickNextPerson uses
+ * (never-contacted first, then least-recently contacted, then createdAt, then
+ * id). Returns a NEW array; the input is never mutated. This is what /list
+ * renders, so the browse order and the next-nudge pick are always consistent.
+ */
+export function sortByContactPriority<T extends RotationCandidate>(people: readonly T[]): T[] {
+  return [...people].sort((a, b) => (isMoreDue(a, b) ? -1 : isMoreDue(b, a) ? 1 : 0));
 }
 
 /** True when `a` should be nudged before `b` under the rules above. */
