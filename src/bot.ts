@@ -647,7 +647,7 @@ async function setBotProfile() {
   await bot.api.setMyCommands([
     { command: 'now', description: 'تذكير فوري بمن يأتي دوره' },
     { command: 'add', description: 'إضافة شخص إلى دائرتك' },
-    { command: 'list', description: 'عرض دائرتك' },
+    { command: 'list', description: 'دائرتك — وتسجيل تواصلك مع أيّ شخص' },
     { command: 'remove', description: 'إزالة شخص من دائرتك' },
     { command: 'settings', description: 'ضبط الإيقاع وساعات الهدوء' },
     { command: 'pause', description: 'إيقاف التذكيرات مؤقتًا' },

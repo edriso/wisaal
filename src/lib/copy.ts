@@ -182,7 +182,8 @@ export const COPY = {
   // Header for the people list. The note explains the order gently: whoever you
   // have gone longest without reaching (never-contacted first) sits at the top —
   // framed as "who most needs your صلة", never as overdue/blame.
-  listBrowseHeader: 'دائرتك — مرتّبة حسب الأحوج لصلتك 🤍',
+  listBrowseHeader:
+    'دائرتك — مرتّبة حسب الأحوج لصِلتك 🤍\n\nاضغط على أيّ اسم لرؤية تفاصيله، أو لتسجيل أنّك تواصلت معه.',
   // The detail card for one person: name (+ relation), then the full
   // last-contacted phrase on its own line.
   personDetail: (display: string, lastContacted: string) =>
