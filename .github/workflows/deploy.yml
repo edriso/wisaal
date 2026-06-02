@@ -4,11 +4,11 @@
 # `deploy` job runs ONLY on a push to main: it SSHes into the VPS, pulls the
 # latest code, then rebuilds this bot's container.
 #
-# Database migrations: wisaal ships an init migration but no seed data (the
-# reminders live in code). Apply pending migrations once per environment with
-# `pnpm db:deploy` — either as a one-off compose service (mirroring ayah's
-# `ayah-migrate`) or by hand. `prisma migrate deploy` is idempotent, so it is
-# safe to wire into the deploy step later if you add such a service.
+# Database migrations: the deploy step runs the one-off `wisaal-migrate`
+# compose service (defined on the server in /opt/bots/docker-compose.yml from
+# the hetzner-cloud-server `compose-with-db.yml` template; its command is
+# `pnpm db:deploy` = `prisma migrate deploy`, which is idempotent) BEFORE
+# (re)starting the bot, so a new migration applies automatically on every push.
 #
 # Required GitHub secrets (repo -> Settings -> Secrets and variables ->
 # Actions -> New repository secret):
@@ -65,5 +65,6 @@ jobs:
             set -e
             cd /opt/bots/telegram/wisaal && git pull
             cd /opt/bots
+            docker compose run --rm --build wisaal-migrate
             docker compose up -d --build wisaal
             docker image prune -f
