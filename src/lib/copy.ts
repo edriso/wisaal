@@ -131,6 +131,16 @@ export function quietWindowAr(startHour: number, endHour: number): string {
 }
 
 export const COPY = {
+  // ─── Bot profile (set on startup via the Bot API, like the commands) ──
+  // About = the short blurb on the bot's profile card (Telegram limit 120).
+  botAbout: 'رفيق لطيف يذكّرك بصلة رحمك، واحدًا تلو الآخر، على الإيقاع الذي تختاره — بلا عتاب 🤍',
+  // Description = the text on the empty chat, shown before /start (limit 512).
+  botDescription:
+    'وِصَال يعينك على صِلة الرحم في زحمة الأيام.\n\n' +
+    'أضِف مَن تحبّ من أهلك، واختَر كل كم يومًا نُذكّرك، فيختار لك وِصَال في كل مرّة شخصًا واحدًا — الأحوج إلى تواصلك — برسالةٍ لطيفة وتذكيرٍ بفضل صِلة الرحم.\n\n' +
+    'حين تتواصل، أخبِرنا بضغطة زر فينتقل إلى آخر الدور كي لا تنسى أحدًا. بلا عتابٍ ولا ضغط؛ مجرّد لمسةٍ تُقرّبك ممّن تحبّ.\n\n' +
+    'اضغط /start لتبدأ 🤍',
+
   // ─── Acknowledgements (warm, never guilt) ────────────────────────────
   // After the user marks that they reached out.
   contacted: 'ربنا يخليكم لبعض 🤍 جعلها الله صلةً موصولة، وزادك من فضله.',

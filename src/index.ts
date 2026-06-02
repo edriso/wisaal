@@ -1,5 +1,5 @@
 import { config } from './config';
-import { bot, setBotCommands } from './bot';
+import { bot, setBotProfile } from './bot';
 import { startScheduler, stopScheduler, runNudgeOnce } from './scheduler';
 import { startHealthServer } from './health';
 import { prisma } from './database';
@@ -52,7 +52,7 @@ async function main() {
   await waitForDatabase();
 
   startHealthServer();
-  await setBotCommands();
+  await setBotProfile();
 
   // grammY long-polling. start() resolves only when the bot stops, so we do not
   // await it here; we let it run and continue booting the scheduler. A rejection

@@ -643,7 +643,7 @@ bot.catch((err) => {
   logger.error('Bot error', { error: String(err.error), update: err.ctx.update.update_id });
 });
 
-async function setBotCommands() {
+async function setBotProfile() {
   await bot.api.setMyCommands([
     { command: 'now', description: 'تذكير فوري بمن يأتي دوره' },
     { command: 'add', description: 'إضافة شخص إلى دائرتك' },
@@ -656,7 +656,13 @@ async function setBotCommands() {
     { command: 'forget', description: 'محو كل بياناتك' },
     { command: 'help', description: 'المساعدة' },
   ]);
+  // Set the About (short description) and Description the same way as the
+  // commands, so the bot is self-describing on deploy — no manual @BotFather
+  // step. (The name, profile photo, and description picture cannot be set via
+  // the Bot API; those stay in @BotFather.)
+  await bot.api.setMyShortDescription(COPY.botAbout);
+  await bot.api.setMyDescription(COPY.botDescription);
 }
 
-export { bot, setBotCommands, parsePersonInput, toNudgeUser };
+export { bot, setBotProfile, parsePersonInput, toNudgeUser };
 export type { RotationPerson };
