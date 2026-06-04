@@ -2,7 +2,7 @@
 //
 // GOLDEN RULE: this text is Islamic content. Never hand-edit, paraphrase, add
 // to, or reorder the hadith/ayah entries or their sources. Every entry is
-// positive and encouraging by design — صلة الرحم is framed as mercy, rizq, and
+// positive and encouraging by design — صلة الأرحام is framed as mercy, rizq, and
 // love, never as guilt or punishment. The first seven carry a scholarly source
 // (متفق عليه / Bukhari / a Quranic reference); the last three are gentle,
 // source-less nudges to act today.

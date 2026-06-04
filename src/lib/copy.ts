@@ -1,6 +1,6 @@
 // All the Arabic text the bot shows. Kept in one file so wording is easy to
 // review and change without touching logic. The voice is warm, modern standard
-// Arabic (not dialect), and never guilt-based: صلة الرحم is an act of love and
+// Arabic (not dialect), and never guilt-based: صلة الأرحام is an act of love and
 // mercy, so every line encourages rather than scolds.
 //
 // Bidi note: this text is right-to-left, but commands, clock times and
@@ -115,7 +115,7 @@ export function shukrPreview(text: string): string {
  */
 export function nudgeMessage(personDisplay: string, reminder: Reminder): string {
   const lines = [
-    'حان وقت صلة الرحم 🤍',
+    'حان وقت صلةِ الأرحامِ 🤍',
     '',
     `ما رأيك أن تطمئنّ اليوم على ${personDisplay}؟`,
     '',
@@ -160,8 +160,8 @@ export const COPY = {
   botAbout: 'رفيق لطيف يذكّرك بصلة رحمك، واحدًا تلو الآخر، على الإيقاع الذي تختاره، بلا عتاب 🤍',
   // Description = the text on the empty chat, shown before /start (limit 512).
   botDescription:
-    'وِصَال يعينك على صِلة الرحم في زحمة الأيام.\n\n' +
-    'أضِف مَن تحبّ من أهلك، وحدّد لكلٍّ منهم كل كم تحبّ أن نذكّرك بصلته (أسبوعيًّا ما لم تختر غير ذلك)، فيختار لك وِصَال في كل مرّة شخصًا واحدًا، هو الأحوج إلى تواصلك، برسالةٍ لطيفة وتذكيرٍ بفضل صِلة الرحم.\n\n' +
+    'وِصَال يعينك على صِلةِ الأرحامِ في زحمة الأيام.\n\n' +
+    'أضِف مَن تحبّ من أهلك، وحدّد لكلٍّ منهم كل كم تحبّ أن نذكّرك بصلته (أسبوعيًّا ما لم تختر غير ذلك)، فيختار لك وِصَال في كل مرّة شخصًا واحدًا، هو الأحوج إلى تواصلك، برسالةٍ لطيفة وتذكيرٍ بفضل صِلةِ الأرحامِ.\n\n' +
     'وحين تتواصل، أخبِرنا بضغطة زر فينتقل إلى آخر الدور كي لا تنسى أحدًا. بلا عتابٍ ولا ضغط؛ مجرّد لمسةٍ تُقرّبك ممّن تحبّ.\n\n' +
     'اضغط /start لتبدأ 🤍',
 
@@ -174,12 +174,12 @@ export const COPY = {
   skipped: 'تمام، سننتقل إلى غيره في المرة القادمة بإذن الله 🤍',
 
   // ─── Onboarding ──────────────────────────────────────────────────────
-  // Brand-new user. A warm intro to صلة الرحم, a one-line privacy note, and a
+  // Brand-new user. A warm intro to صلة الأرحام, a one-line privacy note, and a
   // prompt to /add their first relative.
   welcomeNew: [
     'السلام عليكم ورحمة الله 🌿',
     '',
-    'مرحبًا بك في بوت «وصال». صلةُ الرحم بابٌ من أبواب الرحمة والمحبة، وفيها بركةٌ في العمر والرزق. يذكّرك هذا البوت بلطف، على الإيقاع الذي تختاره، بأن تَصِل واحدًا من أهلك وأرحامك، واحدًا تلو الآخر، دون أن تنسى أحدًا، بلا أيّ عتاب أو ضغط.',
+    'مرحبًا بك في بوت «وصال». صلةُ الأرحامِ بابٌ من أبواب الرحمة والمحبة، وفيها بركةٌ في العمر والرزق. يذكّرك هذا البوت بلطف، على الإيقاع الذي تختاره، بأن تَصِل واحدًا من أهلك وأرحامك، واحدًا تلو الآخر، دون أن تنسى أحدًا، بلا أيّ عتاب أو ضغط.',
     '',
     'خصوصيتك: لا نحفظ سوى رقم محادثتك والأسماء التي تكتبها بنفسك. ولا نقرأ رسائلك إلى أحد. ومتى أردت، يمحو الأمر /forget كلّ بياناتك نهائيًا.',
     '',
@@ -193,7 +193,7 @@ export const COPY = {
   addPrompt: 'اكتب اسم الشخص الذي تريد إضافته (ويمكنك إضافة صلة القرابة، مثل: خالتي فاطمة).',
   addEmpty: 'لم أتمكن من قراءة الاسم. حاول مرة أخرى بكتابة الاسم فقط.',
   addedOne: (display: string) => `أضفتُ ${display} إلى عائلتك 🤍`,
-  listEmpty: `لم تُضِف أحدًا بعد. أضِف أول اسم بـ ${ltr('/add')} لتبدأ صلة الرحم.`,
+  listEmpty: `لم تُضِف أحدًا بعد. أضِف أول اسم بـ ${ltr('/add')} لتبدأ صلةَ الأرحامِ.`,
   // The never-contacted phrasing. The button stands alone, so it reads as a full
   // sentence; the card sits after an "آخر تواصل:" label, so it reads as a value.
   lastContactedNever: 'لم تتواصل بعد',
@@ -282,7 +282,7 @@ export const COPY = {
   shukrNotEnabled: `دفتر الشكر غير مُفعّل. فعّله أولًا بـ ${ltr('/shukr')}.`,
   // The journal browser (enabled, with entries).
   shukrJournalHeader:
-    'دفتر الشكر 🤍 لحظاتك التي أسعدك فيها وصلُ الرحم. اضغط أيّ لحظة لقراءتها أو حذفها.',
+    'دفتر الشكر 🤍 لحظاتك التي أسعدك فيها وصلُ الأرحامِ. اضغط أيّ لحظة لقراءتها أو حذفها.',
   // Enabled, but nothing recorded yet.
   shukrEmpty: 'دفتر الشكر مُفعّل ولا توجد لحظات بعد 🤍 اضغط «أضف لحظة شكر» لتدوين أوّل لحظة.',
   // One entry opened from the journal: its date, then the full note.

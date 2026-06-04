@@ -1,11 +1,11 @@
 # Wisaal (وصال)
 
-A small Telegram bot for **صلة الرحم** (keeping ties with your relatives).
+A small Telegram bot for **صلة الأرحام** (keeping ties with your relatives).
 
 Wisaal gently nudges you, on a rhythm you choose, to reach out to **one
 relative at a time**, rotating fairly through your circle so no one is
 forgotten. Each nudge carries a warm, authentic encouragement (a hadith, an
-ayah, or a kind word). It never guilts or pressures; صلة الرحم is mercy and
+ayah, or a kind word). It never guilts or pressures; صلة الأرحام is mercy and
 love, and the bot speaks that way.
 
 It is one small TypeScript project, with everything under `src/`:
