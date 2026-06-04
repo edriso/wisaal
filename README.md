@@ -1,20 +1,20 @@
 # Wisaal (وصال)
 
-A small Telegram bot for **صلة الرحم** — keeping ties with your relatives.
+A small Telegram bot for **صلة الرحم** (keeping ties with your relatives).
 
 Wisaal gently nudges you, on a rhythm you choose, to reach out to **one
 relative at a time**, rotating fairly through your circle so no one is
 forgotten. Each nudge carries a warm, authentic encouragement (a hadith, an
-ayah, or a kind word). It never guilts or pressures — صلة الرحم is mercy and
+ayah, or a kind word). It never guilts or pressures; صلة الرحم is mercy and
 love, and the bot speaks that way.
 
 It is one small TypeScript project, with everything under `src/`:
 
-- `src/core` — pure logic, no database, no network. Fully unit-tested.
-- `src/database` — the Prisma client and (in later phases) the database
+- `src/core`: pure logic, no database, no network. Fully unit-tested.
+- `src/database`: the Prisma client and (in later phases) the database
   services. Reference content (the reminders) lives in
   `src/database/reference`.
-- `src/` (bot, scheduler, lib/, …) — the grammY bot, the database services, and
+- `src/` (bot, scheduler, lib/, …): the grammY bot, the database services, and
   the per-minute nudge scheduler.
 
 The cross-bot kernel lives in **`telegram-bot-kit`** (a separate public repo,
@@ -29,21 +29,21 @@ kernel. The `ayah` and `tilawah` bots consume the same kernel.
 
 Each user keeps a private **circle** of relatives. On their chosen **cadence**
 (daily, every few days, or weekly), and only outside their **quiet hours**, the
-bot picks the person they have gone longest without contacting — always a
-never-contacted person first — and sends a gentle nudge. The user can mark
+bot picks the person they have gone longest without contacting (always a
+never-contacted person first) and sends a gentle nudge. The user can mark
 **contacted**, **snooze**, or **skip**, and the rotation moves on. One nudge per
 cycle, enforced by a unique `(user, local-date)` lock just like ayah.
 
 When a nudge arrives it carries three inline buttons:
 
-- **«تواصلت ✅»** — you reached out. The person moves to the back of the rotation
+- **«تواصلت ✅»**: you reached out. The person moves to the back of the rotation
   (their `lastContactedAt` is set to now) and the bot replies warmly.
-- **«فكّرني بعدين ⏰»** — snooze about a day; the next cycle is skipped softly.
-- **«تخطّي»** — skip this one with no pressure; the same person stays next.
+- **«فكّرني بعدين ⏰»**: snooze about a day; the next cycle is skipped softly.
+- **«تخطّي»**: skip this one with no pressure; the same person stays next.
 
 `/list` is an interactive browser of your circle, sorted by who you have gone
 longest without reaching (the same order the nudge picks). Tap a name to open a
-small detail card — their relation and last contact — where you can mark
+small detail card (their relation and last contact) where you can mark
 «تواصلت ✅» proactively (which records the contact and drops them to the back of
 both the list and the rotation, without touching the daily nudge rhythm) or
 remove them. Long circles paginate eight at a time.
@@ -54,7 +54,7 @@ remove them. Long circles paginate eight at a time.
 | ----------- | -------------------------------------------------- |
 | `/start`    | Warm onboarding + privacy note; prompts you to add |
 | `/add`      | `/add <name> [relation]`, or send the name next    |
-| `/list`     | Interactive, sorted browser of your circle (most-due first); tap a name to see their last contact and mark «تواصلت» or remove — paginated |
+| `/list`     | Interactive, sorted browser of your circle (most-due first); tap a name to see their last contact and mark «تواصلت» or remove (paginated) |
 | `/remove`   | Inline buttons to remove someone                   |
 | `/now`      | Nudge me right now about whoever is next           |
 | `/settings` | Cadence, quiet hours, and pause/resume (buttons)   |
@@ -64,7 +64,7 @@ remove them. Long circles paginate eight at a time.
 | `/help`     | Show the command list                              |
 
 Admin-only (set `ADMIN_TELEGRAM_ID`): `/admin_health`, `/admin_send` (fire one
-nudge batch by hand — the same path the cron uses).
+nudge batch by hand, the same path the cron uses).
 
 ## Get a bot token
 
@@ -96,7 +96,7 @@ the VPS, pulls `/opt/bots/telegram/wisaal`, and runs
 `docker compose up -d --build wisaal` (then prunes old images). It activates
 once the `SERVER_IP` and `SSH_KEY` GitHub secrets are set and `wisaal` is added
 to the VPS `docker compose` file. Apply migrations there with `pnpm db:deploy`
-(idempotent) the first time and whenever the schema changes — e.g. via a
+(idempotent) the first time and whenever the schema changes, e.g. via a
 `wisaal-migrate` one-off compose service like ayah's.
 
 ## License

@@ -54,38 +54,37 @@ function localDaysBetween(timezone: string, a: Date, b: Date): number {
   return Math.round((bMs - aMs) / 86_400_000);
 }
 
-/** A friendly Arabic "last reached out" phrase for /list, in the user's
- *  timezone. Null lastContactedAt reads as "not yet"; the same local day reads
- *  as "today"; otherwise "N days ago" with number-noun agreement. */
+/** A natural, standalone Arabic phrase for how long ago contact happened, given
+ *  whole local days. Arabic has single words for the recent days, so we use them
+ *  instead of a counted phrase: today reads "اليوم", one day ago "أمس", two days
+ *  ago "أول أمس", and beyond that "قبل N يومًا" with number-noun agreement.
+ *  Shared by the list button and the detail card so they always agree. */
+function relativeDayAr(days: number): string {
+  if (days <= 0) return 'اليوم';
+  if (days === 1) return 'أمس';
+  if (days === 2) return 'أول أمس';
+  if (days <= 10) return `قبل ${toArabicDigits(days)} أيام`;
+  return `قبل ${toArabicDigits(days)} يومًا`;
+}
+
+/** The "last reached out" value for a person's detail card, in the user's
+ *  timezone. It reads as a bare value after the "آخر تواصل:" label, so the
+ *  never case is worded for that slot. */
 export function lastContactedAr(lastContactedAt: Date | null, timezone: string, now: Date): string {
-  if (lastContactedAt === null) return COPY.lastContactedNever;
-  const days = localDaysBetween(timezone, lastContactedAt, now);
-  if (days <= 0) return COPY.lastContactedToday;
-  let unit: string;
-  if (days === 1) unit = 'يوم';
-  else if (days === 2) unit = 'يومين';
-  else if (days <= 10) unit = `${toArabicDigits(days)} أيام`;
-  else unit = `${toArabicDigits(days)} يومًا`;
-  return COPY.lastContactedAgo(unit);
+  if (lastContactedAt === null) return COPY.lastContactedNeverCard;
+  return relativeDayAr(localDaysBetween(timezone, lastContactedAt, now));
 }
 
 /** A SHORT last-contacted phrase for an inline button label (kept compact so
- *  the button stays on one line): "لم تتواصل بعد" / "اليوم" / "قبل ٣ أيام".
- *  Same day math as lastContactedAr, just terser. */
+ *  the button stays on one line): "لم تتواصل بعد" / "اليوم" / "أمس" / "أول أمس"
+ *  / "قبل ٣ أيام". Same day math as lastContactedAr, just a fuller never case. */
 export function lastContactedCompactAr(
   lastContactedAt: Date | null,
   timezone: string,
   now: Date,
 ): string {
   if (lastContactedAt === null) return COPY.lastContactedNever;
-  const days = localDaysBetween(timezone, lastContactedAt, now);
-  if (days <= 0) return COPY.lastContactedTodayCompact;
-  let unit: string;
-  if (days === 1) unit = 'يوم';
-  else if (days === 2) unit = 'يومين';
-  else if (days <= 10) unit = `${toArabicDigits(days)} أيام`;
-  else unit = `${toArabicDigits(days)} يومًا`;
-  return `قبل ${unit}`;
+  return relativeDayAr(localDaysBetween(timezone, lastContactedAt, now));
 }
 
 /** A short calendar date in the user's timezone, in Arabic-Indic digits, e.g.
@@ -158,17 +157,17 @@ export function quietWindowAr(startHour: number, endHour: number): string {
 export const COPY = {
   // ─── Bot profile (set on startup via the Bot API, like the commands) ──
   // About = the short blurb on the bot's profile card (Telegram limit 120).
-  botAbout: 'رفيق لطيف يذكّرك بصلة رحمك، واحدًا تلو الآخر، على الإيقاع الذي تختاره — بلا عتاب 🤍',
+  botAbout: 'رفيق لطيف يذكّرك بصلة رحمك، واحدًا تلو الآخر، على الإيقاع الذي تختاره، بلا عتاب 🤍',
   // Description = the text on the empty chat, shown before /start (limit 512).
   botDescription:
     'وِصَال يعينك على صِلة الرحم في زحمة الأيام.\n\n' +
-    'أضِف مَن تحبّ من أهلك، وحدّد لكلٍّ منهم كل كم تحبّ أن نذكّرك بصلته (أسبوعيًّا ما لم تختر غير ذلك)، فيختار لك وِصَال في كل مرّة شخصًا واحدًا — الأحوج إلى تواصلك — برسالةٍ لطيفة وتذكيرٍ بفضل صِلة الرحم.\n\n' +
-    'حين تتواصل، أخبِرنا بضغطة زر فينتقل إلى آخر الدور كي لا تنسى أحدًا. بلا عتابٍ ولا ضغط؛ مجرّد لمسةٍ تُقرّبك ممّن تحبّ.\n\n' +
+    'أضِف مَن تحبّ من أهلك، وحدّد لكلٍّ منهم كل كم تحبّ أن نذكّرك بصلته (أسبوعيًّا ما لم تختر غير ذلك)، فيختار لك وِصَال في كل مرّة شخصًا واحدًا، هو الأحوج إلى تواصلك، برسالةٍ لطيفة وتذكيرٍ بفضل صِلة الرحم.\n\n' +
+    'وحين تتواصل، أخبِرنا بضغطة زر فينتقل إلى آخر الدور كي لا تنسى أحدًا. بلا عتابٍ ولا ضغط؛ مجرّد لمسةٍ تُقرّبك ممّن تحبّ.\n\n' +
     'اضغط /start لتبدأ 🤍',
 
   // ─── Acknowledgements (warm, never guilt) ────────────────────────────
   // After the user marks that they reached out.
-  contacted: 'ربنا يخليكم لبعض 🤍 جعلها الله صلةً موصولة، وزادك من فضله.',
+  contacted: 'حفظكم الله لبعضكم 🤍 جعلها الله صلةً موصولة، وزادك من فضله.',
   // After "remind me later" / snooze.
   snoozed: 'لا بأس، سأذكّرك لاحقًا بإذن الله. خذ وقتك 🤍',
   // After "skip this one" — move the rotation along with no pressure.
@@ -180,7 +179,7 @@ export const COPY = {
   welcomeNew: [
     'السلام عليكم ورحمة الله 🌿',
     '',
-    'مرحبًا بك في بوت "وصال". صلةُ الرحم بابٌ من أبواب الرحمة والمحبة، وفيها بركةٌ في العمر والرزق. يذكّرك هذا البوت بلطف، على الإيقاع الذي تختاره، بأن تَصِل واحدًا من أهلك وأرحامك، واحدًا تلو الآخر، دون أن تنسى أحدًا — بلا أيّ عتاب أو ضغط.',
+    'مرحبًا بك في بوت «وصال». صلةُ الرحم بابٌ من أبواب الرحمة والمحبة، وفيها بركةٌ في العمر والرزق. يذكّرك هذا البوت بلطف، على الإيقاع الذي تختاره، بأن تَصِل واحدًا من أهلك وأرحامك، واحدًا تلو الآخر، دون أن تنسى أحدًا، بلا أيّ عتاب أو ضغط.',
     '',
     'خصوصيتك: لا نحفظ سوى رقم محادثتك والأسماء التي تكتبها بنفسك. ولا نقرأ رسائلك إلى أحد. ومتى أردت، يمحو الأمر /forget كلّ بياناتك نهائيًا.',
     '',
@@ -188,27 +187,27 @@ export const COPY = {
   ].join('\n'),
 
   // Returning user: a short greeting plus their current settings summary.
-  welcome: (summary: string) => `أهلًا بعودتك إلى "وصال" 🌿\n\n${summary}`,
+  welcome: (summary: string) => `أهلًا بعودتك إلى «وصال» 🌿\n\n${summary}`,
 
   // ─── Adding / listing / removing people ──────────────────────────────
   addPrompt: 'اكتب اسم الشخص الذي تريد إضافته (ويمكنك إضافة صلة القرابة، مثل: خالتي فاطمة).',
   addEmpty: 'لم أتمكن من قراءة الاسم. حاول مرة أخرى بكتابة الاسم فقط.',
-  addedOne: (display: string) => `أضفتُ ${display} إلى دائرتك 🤍`,
-  listEmpty: `دائرتك فارغة حتى الآن. أضف أول شخص بـ ${ltr('/add')} لتبدأ صلة الرحم.`,
+  addedOne: (display: string) => `أضفتُ ${display} إلى عائلتك 🤍`,
+  listEmpty: `لم تُضِف أحدًا بعد. أضِف أول اسم بـ ${ltr('/add')} لتبدأ صلة الرحم.`,
+  // The never-contacted phrasing. The button stands alone, so it reads as a full
+  // sentence; the card sits after an "آخر تواصل:" label, so it reads as a value.
   lastContactedNever: 'لم تتواصل بعد',
-  lastContactedAgo: (daysAr: string) => `آخر تواصل قبل ${daysAr}`,
-  lastContactedToday: 'تواصلت اليوم',
-  lastContactedTodayCompact: 'اليوم',
-  removePrompt: 'اختر من تريد إزالته من دائرتك.',
-  removeEmpty: 'دائرتك فارغة، فلا أحد لإزالته.',
-  removedOne: (display: string) => `أزلتُ ${display} من دائرتك.`,
+  lastContactedNeverCard: 'لم يحدث بعد',
+  removePrompt: 'اختر من تريد إزالته من عائلتك.',
+  removeEmpty: 'لا أحد في عائلتك لإزالته.',
+  removedOne: (display: string) => `أزلتُ ${display} من عائلتك.`,
 
   // ─── /list — the interactive, sorted, paginated browser ──────────────
   // Header for the people list. The note explains the order gently: whoever you
   // have gone longest without reaching (never-contacted first) sits at the top —
   // framed as "who most needs your صلة", never as overdue/blame.
   listBrowseHeader:
-    'دائرتك — مرتّبة حسب الأحوج لصِلتك 🤍\n\nاضغط على أيّ اسم لرؤية تفاصيله، أو لتسجيل أنّك تواصلت معه، أو لضبط كل كم نذكّرك بصلته.',
+    'عائلتك، مرتّبة حسب الأحوج لصِلتك 🤍\n\nاضغط على أيّ اسم لرؤية تفاصيله، أو لتسجيل أنّك تواصلت معه، أو لضبط كل كم نذكّرك بصلته.',
   // The detail card for one person: name (+ relation), then the full
   // last-contacted phrase and the per-relative reminder cadence, each on its
   // own line.
@@ -238,7 +237,7 @@ export const COPY = {
   // The default-cadence picker, opened from /settings. Sets the starting
   // cadence new relatives inherit; existing ones keep their own.
   defaultCadencePrompt:
-    'كل كم تحب أن نذكّرك بالأقارب الذين تضيفهم لاحقًا؟\n\n(لن يتغيّر إعداد من أضفتهم سابقًا — كل قريب يُضبط من قائمته في /list.)',
+    'كل كم تحب أن نذكّرك بالأقارب الذين تضيفهم لاحقًا؟\n\n(لن يتغيّر إعداد من أضفتهم سابقًا؛ كل قريب يُضبط من قائمته في /list.)',
   defaultCadenceUpdated: (summary: string) => `تمام، سنذكّرك بالأقارب الجدد ${summary} 🤍`,
   settingsQuietBtn: '🌙 ساعات الهدوء',
   quietPrompt: 'في أي ساعات تحب ألّا تصلك التذكيرات؟',
@@ -246,7 +245,7 @@ export const COPY = {
   tzUpdated: (tz: string) => `تم ضبط المنطقة الزمنية على ${ltr(tz)} ✅`,
 
   // ─── /now — send a nudge immediately, outside the schedule ───────────
-  nowNoPeople: `أضف أحدًا إلى دائرتك أولًا (بـ ${ltr('/add')}) حتى أذكّرك بصلته 🤍`,
+  nowNoPeople: `أضِف أحدًا إلى عائلتك أولًا (بـ ${ltr('/add')}) حتى أذكّرك بصلته 🤍`,
   // Shown when /now is run again after today's nudge was already claimed.
   nowAlready: 'هذا هو تذكير اليوم 🤍',
 
@@ -299,18 +298,18 @@ export const COPY = {
 
   // ─── /help — full command list ───────────────────────────────────────
   help: [
-    'بوت "وصال" يذكّرك بلطف بصلة أرحامك، واحدًا تلو الآخر.',
+    'بوت «وصال» يذكّرك بلطف بصلة أرحامك، واحدًا تلو الآخر.',
     '',
     'الأوامر:',
-    `${ltr('/add')} — إضافة شخص إلى دائرتك`,
-    `${ltr('/list')} — تصفّح دائرتك (مرتّبة حسب الأحوج لصلتك)، وسجّل تواصلك واضبط كل كم نذكّرك بكل قريب`,
-    `${ltr('/remove')} — إزالة شخص من دائرتك`,
-    `${ltr('/now')} — تذكير فوري بمن يأتي دوره`,
-    `${ltr('/settings')} — ضبط تذكير الأقارب الجدد وساعات الهدوء`,
-    `${ltr('/pause')} — إيقاف التذكيرات، و ${ltr('/resume')} للعودة`,
-    `${ltr('/shukr')} — دفتر الشكر: دوّن لحظات الامتنان وتصفّحها (اختياري)`,
-    `${ltr('/forget')} — محو كل بياناتك`,
-    `${ltr('/help')} — هذه القائمة`,
+    `${ltr('/add')} · إضافة شخص إلى عائلتك`,
+    `${ltr('/list')} · تصفّح عائلتك (مرتّبة حسب الأحوج لصلتك)، وسجّل تواصلك واضبط كل كم نذكّرك بكل قريب`,
+    `${ltr('/remove')} · إزالة شخص من عائلتك`,
+    `${ltr('/now')} · تذكير فوري بمن يأتي دوره`,
+    `${ltr('/settings')} · ضبط تذكير الأقارب الجدد وساعات الهدوء`,
+    `${ltr('/pause')} · إيقاف التذكيرات، و${ltr('/resume')} للعودة`,
+    `${ltr('/shukr')} · دفتر الشكر: دوّن لحظات الامتنان وتصفّحها (اختياري)`,
+    `${ltr('/forget')} · محو كل بياناتك`,
+    `${ltr('/help')} · هذه القائمة`,
   ].join('\n'),
 
   // Generic fallback for an unrecognised message.

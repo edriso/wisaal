@@ -806,13 +806,13 @@ bot.catch((err) => {
 async function setBotProfile() {
   await bot.api.setMyCommands([
     { command: 'now', description: 'تذكير فوري بمن يأتي دوره' },
-    { command: 'add', description: 'إضافة شخص إلى دائرتك' },
-    { command: 'list', description: 'دائرتك — تسجيل التواصل وضبط إيقاع كل قريب' },
-    { command: 'remove', description: 'إزالة شخص من دائرتك' },
+    { command: 'add', description: 'إضافة شخص إلى عائلتك' },
+    { command: 'list', description: 'عائلتك: تسجيل التواصل وضبط إيقاع كل قريب' },
+    { command: 'remove', description: 'إزالة شخص من عائلتك' },
     { command: 'settings', description: 'تذكير الأقارب الجدد وساعات الهدوء' },
     { command: 'pause', description: 'إيقاف التذكيرات مؤقتًا' },
     { command: 'resume', description: 'استئناف التذكيرات' },
-    { command: 'shukr', description: 'دفتر الشكر — تدوين لحظات الامتنان وتصفّحها' },
+    { command: 'shukr', description: 'دفتر الشكر: تدوين لحظات الامتنان وتصفّحها' },
     { command: 'forget', description: 'محو كل بياناتك' },
     { command: 'help', description: 'المساعدة' },
   ]);

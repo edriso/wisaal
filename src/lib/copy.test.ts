@@ -6,6 +6,8 @@ import {
   settingsSummary,
   shortDateAr,
   shukrPreview,
+  lastContactedAr,
+  lastContactedCompactAr,
   COPY,
 } from './copy';
 import type { Reminder } from '../database/reference/reminders';
@@ -101,6 +103,35 @@ describe('shukrPreview', () => {
     const out = shukrPreview(long);
     expect(out.endsWith('…')).toBe(true);
     expect(out.length).toBeLessThanOrEqual(30);
+  });
+});
+
+describe('lastContacted phrasing (in the user timezone)', () => {
+  // Africa/Cairo is UTC+2 with no DST, so local-day math is easy to reason about.
+  const tz = 'Africa/Cairo';
+  const now = new Date('2026-06-04T10:00:00Z'); // Cairo date 2026-06-04
+
+  it('uses single words for the recent days (today / yesterday / day-before)', () => {
+    // The detail-card value reads as a bare value after the "آخر تواصل:" label.
+    expect(lastContactedAr(new Date('2026-06-04T06:00:00Z'), tz, now)).toBe('اليوم');
+    expect(lastContactedAr(new Date('2026-06-03T10:00:00Z'), tz, now)).toBe('أمس');
+    expect(lastContactedAr(new Date('2026-06-02T10:00:00Z'), tz, now)).toBe('أول أمس');
+  });
+
+  it('falls back to a counted "قبل N" phrase beyond two days', () => {
+    expect(lastContactedAr(new Date('2026-05-30T10:00:00Z'), tz, now)).toBe('قبل ٥ أيام');
+    expect(lastContactedAr(new Date('2026-05-20T10:00:00Z'), tz, now)).toBe('قبل ١٥ يومًا');
+  });
+
+  it('words the never case for its slot (a value on the card, a sentence on the button)', () => {
+    expect(lastContactedAr(null, tz, now)).toBe(COPY.lastContactedNeverCard);
+    expect(lastContactedCompactAr(null, tz, now)).toBe(COPY.lastContactedNever);
+  });
+
+  it('shares the same recent-day words between the card and the button', () => {
+    const at = new Date('2026-06-03T10:00:00Z');
+    expect(lastContactedCompactAr(at, tz, now)).toBe('أمس');
+    expect(lastContactedCompactAr(at, tz, now)).toBe(lastContactedAr(at, tz, now));
   });
 });
 
