@@ -13,11 +13,6 @@ export function setPending(telegramId: bigint, kind: PendingKind): void {
   pending.set(telegramId, kind);
 }
 
-/** What this user is being asked for, if anything. */
-export function getPending(telegramId: bigint): PendingKind | undefined {
-  return pending.get(telegramId);
-}
-
 /** Consume (read and clear) the pending prompt for this user. */
 export function takePending(telegramId: bigint): PendingKind | undefined {
   const kind = pending.get(telegramId);

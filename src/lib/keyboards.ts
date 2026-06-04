@@ -1,5 +1,4 @@
 import { InlineKeyboard } from 'grammy';
-import { toArabicDigits } from '../core';
 import {
   COPY,
   cadenceSummaryAr,
@@ -94,8 +93,7 @@ export function buildNudgeKeyboard(personId: number): InlineKeyboard {
 export function buildRemoveKeyboard(people: readonly RotationPerson[]): InlineKeyboard {
   const kb = new InlineKeyboard();
   for (const person of people) {
-    const label = person.relation ? `${person.relation} ${person.name}` : person.name;
-    kb.text(label, `${REMOVE_PREFIX}${person.id}`).row();
+    kb.text(personLabel(person.name, person.relation), `${REMOVE_PREFIX}${person.id}`).row();
   }
   return kb;
 }
@@ -257,9 +255,4 @@ export function buildForgetKeyboard(): InlineKeyboard {
     .text(COPY.forgetConfirmBtn, FORGET_CONFIRM)
     .row()
     .text(COPY.forgetCancelBtn, FORGET_CANCEL);
-}
-
-/** Format an hour (0..23) as a friendly Arabic-Indic clock, e.g. "٢٢:٠٠". */
-export function hourLabel(hour: number): string {
-  return `${toArabicDigits(hour).padStart(2, '٠')}:٠٠`;
 }
