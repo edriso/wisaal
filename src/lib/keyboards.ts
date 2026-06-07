@@ -1,13 +1,6 @@
 import { InlineKeyboard } from 'grammy';
-import {
-  COPY,
-  cadenceSummaryAr,
-  personLabel,
-  lastContactedCompactAr,
-  shortDateAr,
-  shukrPreview,
-} from './copy';
-import type { RotationPerson, ShukrListEntry } from '../database';
+import { COPY, cadenceSummaryAr, personLabel, lastContactedCompactAr } from './copy';
+import type { RotationPerson } from '../database';
 
 // ─── Callback-data namespaces ───────────────────────────────────────
 // Every prefix is namespaced with "tw:" so the patterns never clash and a
@@ -61,16 +54,6 @@ export const QUIET_OPTIONS: ReadonlyArray<{ start: number; end: number; label: s
 
 // Pause/resume toggle in /settings.
 export const PAUSE_TOGGLE = 'tw:pause:toggle';
-
-// The optional gratitude (shukr) journal. The enable/disable toggle, the
-// «add a note» button, and the browser: a page button carries the page
-// (e.g. "tw:shukr:p:2"), an entry button the entry id ("tw:shukr:e:42"), and a
-// delete button the entry id ("tw:shukr:rm:42"). All stay tiny.
-export const SHUKR_TOGGLE = 'tw:shukr:toggle';
-export const SHUKR_ADD = 'tw:shukr:add';
-export const SHUKR_PAGE_PREFIX = 'tw:shukr:p:';
-export const SHUKR_ENTRY_PREFIX = 'tw:shukr:e:';
-export const SHUKR_REMOVE_PREFIX = 'tw:shukr:rm:';
 
 // /forget confirmation.
 export const FORGET_CONFIRM = 'tw:forget:yes';
@@ -205,48 +188,6 @@ export function buildSettingsKeyboard(paused: boolean): InlineKeyboard {
     .text(COPY.settingsQuietBtn, `${QUIET_PREFIX}open`)
     .row()
     .text(paused ? COPY.resumeBtn : COPY.pauseBtn, PAUSE_TOGGLE);
-}
-
-/** The onboarding keyboard for a not-yet-enabled journal: a single enable button. */
-export function buildShukrEnableKeyboard(): InlineKeyboard {
-  return new InlineKeyboard().text(COPY.shukrEnableBtn, SHUKR_TOGGLE);
-}
-
-/**
- * The gratitude journal browser: one button per entry on the given page
- * («{date} · {preview}»), a pagination row with only the arrows that apply,
- * then a footer row to add a new note and to turn the journal off. `entries`
- * is most-recent-first; with none, only the footer shows (the empty state).
- */
-export function buildShukrJournalKeyboard(
-  entries: readonly ShukrListEntry[],
-  page: number,
-  pageSize: number,
-  timezone: string,
-): InlineKeyboard {
-  const pageCount = Math.max(1, Math.ceil(entries.length / pageSize));
-  const safePage = Math.min(Math.max(1, page), pageCount);
-  const start = (safePage - 1) * pageSize;
-  const slice = entries.slice(start, start + pageSize);
-
-  const kb = new InlineKeyboard();
-  for (const entry of slice) {
-    const label = `${shortDateAr(entry.createdAt, timezone)} · ${shukrPreview(entry.text)}`;
-    kb.text(label, `${SHUKR_ENTRY_PREFIX}${entry.id}`).row();
-  }
-  if (safePage > 1) kb.text(COPY.btnPrevPage, `${SHUKR_PAGE_PREFIX}${safePage - 1}`);
-  if (safePage < pageCount) kb.text(COPY.btnNextPage, `${SHUKR_PAGE_PREFIX}${safePage + 1}`);
-  if (entries.length > pageSize) kb.row(); // keep the footer on its own row
-  kb.text(COPY.btnShukrAdd, SHUKR_ADD).row().text(COPY.btnShukrDisable, SHUKR_TOGGLE);
-  return kb;
-}
-
-/** A single entry's detail card keyboard: delete, and back to the journal. */
-export function buildShukrEntryKeyboard(entryId: number): InlineKeyboard {
-  return new InlineKeyboard()
-    .text(COPY.btnShukrRemove, `${SHUKR_REMOVE_PREFIX}${entryId}`)
-    .row()
-    .text(COPY.btnShukrBack, `${SHUKR_PAGE_PREFIX}1`);
 }
 
 /** The /forget confirm/cancel keyboard. */

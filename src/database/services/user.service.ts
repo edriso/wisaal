@@ -69,11 +69,6 @@ export function setSnooze(userId: number, until: Date | null) {
   return prisma.user.update({ where: { id: userId }, data: { snoozeUntil: until } });
 }
 
-/** Opt the user in or out of the optional gratitude (shukr) prompts. */
-export function setShukrEnabled(userId: number, enabled: boolean) {
-  return prisma.user.update({ where: { id: userId }, data: { shukrEnabled: enabled } });
-}
-
 /**
  * Mark a user as unreachable (they blocked the bot, or a send failed with a
  * 403). Nudge loops skip blocked users. Cleared automatically the next time
@@ -84,10 +79,10 @@ export function setBlocked(userId: number, blocked: boolean) {
 }
 
 /**
- * Delete the user and ALL their data. The schema cascades from User to people,
- * nudge logs, and shukr entries (onDelete: Cascade), so this single delete
- * wipes everything we ever stored about them — the heart of /forget. Returns
- * the number of users actually deleted (0 if they had no row yet).
+ * Delete the user and ALL their data. The schema cascades from User to people
+ * and nudge logs (onDelete: Cascade), so this single delete wipes everything we
+ * ever stored about them — the heart of /forget. Returns the number of users
+ * actually deleted (0 if they had no row yet).
  */
 export async function forgetUser(telegramId: bigint): Promise<number> {
   const result = await prisma.user.deleteMany({ where: { telegramId } });

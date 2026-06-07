@@ -4,7 +4,6 @@ import {
   updateSettings,
   setPaused,
   setSnooze,
-  setShukrEnabled,
   forgetUser,
   addPerson,
   listPeople,
@@ -13,9 +12,6 @@ import {
   setPersonCadence,
   claimNudge,
   logAction,
-  addShukr,
-  listShukr,
-  removeShukr,
   type User,
   type RotationPerson,
 } from './database';
@@ -28,7 +24,6 @@ import {
   lastContactedAr,
   quietWindowAr,
   cadenceSummaryAr,
-  shortDateAr,
 } from './lib/copy';
 import { sortByContactPriority } from './core';
 import { buildNudgeView, type NudgeUser } from './lib/deliver';
@@ -43,9 +38,6 @@ import {
   buildDefaultCadenceKeyboard,
   buildQuietKeyboard,
   buildSettingsKeyboard,
-  buildShukrEnableKeyboard,
-  buildShukrJournalKeyboard,
-  buildShukrEntryKeyboard,
   buildForgetKeyboard,
   ACTION_PREFIX,
   ACTION_CONTACTED,
@@ -63,11 +55,6 @@ import {
   QUIET_PREFIX,
   QUIET_OPTIONS,
   PAUSE_TOGGLE,
-  SHUKR_TOGGLE,
-  SHUKR_ADD,
-  SHUKR_PAGE_PREFIX,
-  SHUKR_ENTRY_PREFIX,
-  SHUKR_REMOVE_PREFIX,
   FORGET_CONFIRM,
   FORGET_CANCEL,
 } from './lib/keyboards';
@@ -279,37 +266,6 @@ bot.command('resume', async (ctx) => {
   }
   await setPaused(user.id, false);
   await ctx.reply(COPY.resumed);
-});
-
-/** The gratitude journal as text + keyboard for the given page. Header reads
- *  as the empty state when there is nothing recorded yet. */
-async function shukrJournalView(user: User, page: number) {
-  const entries = await listShukr(user.id);
-  return {
-    text: entries.length === 0 ? COPY.shukrEmpty : COPY.shukrJournalHeader,
-    reply_markup: buildShukrJournalKeyboard(entries, page, PAGE_SIZE, user.timezone),
-  };
-}
-
-// /shukr: the opt-in gratitude journal. Not enabled → the intro + enable
-// button. Enabled → browse the journal (read/add/delete). "/shukr <text>" adds
-// a note inline when enabled.
-bot.command('shukr', async (ctx) => {
-  const user = await userFor(ctx);
-  if (!user) return;
-  const arg = commandArg(ctx, 'shukr');
-  if (arg && user.shukrEnabled) {
-    // Allow "/shukr <text>" inline when already enabled.
-    await addShukr(user.id, arg);
-    await ctx.reply(COPY.shukrSaved);
-    return;
-  }
-  if (!user.shukrEnabled) {
-    await ctx.reply(COPY.shukrIntro, { reply_markup: buildShukrEnableKeyboard() });
-    return;
-  }
-  const view = await shukrJournalView(user, 1);
-  await ctx.reply(view.text, { reply_markup: view.reply_markup });
 });
 
 // /forget: wipe ALL of the user's data, behind an explicit confirm.
@@ -617,97 +573,6 @@ bot.callbackQuery(PAUSE_TOGGLE, async (ctx) => {
   await ctx.answerCallbackQuery({ text: wasPaused ? '▶️ عادت التذكيرات' : '⏸️ تم الإيقاف' });
 });
 
-// ─── Shukr toggle ────────────────────────────────────────────────────
-
-bot.callbackQuery(SHUKR_TOGGLE, async (ctx) => {
-  const user = await userFor(ctx);
-  if (!user) {
-    await ctx.answerCallbackQuery();
-    return;
-  }
-  const enable = !user.shukrEnabled;
-  await setShukrEnabled(user.id, enable);
-  await ctx.editMessageReplyMarkup().catch(ignoreNotModified);
-  if (enable) {
-    setPending(BigInt(ctx.from!.id), 'shukr-text');
-    await ctx.reply(COPY.shukrEnabled);
-  } else {
-    clearPending(BigInt(ctx.from!.id));
-    await ctx.reply(COPY.shukrDisabled);
-  }
-  await ctx.answerCallbackQuery();
-});
-
-// «➕ أضف لحظة شكر» — the next plain message becomes a new gratitude note.
-bot.callbackQuery(SHUKR_ADD, async (ctx) => {
-  if (!ctx.from) {
-    await ctx.answerCallbackQuery();
-    return;
-  }
-  setPending(BigInt(ctx.from.id), 'shukr-text');
-  await ctx.reply(COPY.shukrAddPrompt);
-  await ctx.answerCallbackQuery();
-});
-
-// «‹ السابق» / «التالي ›» / «‹ رجوع للدفتر» — paginate / return to the journal.
-bot.callbackQuery(new RegExp(`^${SHUKR_PAGE_PREFIX}(\\d+)$`), async (ctx) => {
-  const user = await userFor(ctx);
-  if (!user) {
-    await ctx.answerCallbackQuery();
-    return;
-  }
-  const view = await shukrJournalView(user, Number(ctx.match![1]));
-  await ctx
-    .editMessageText(view.text, { reply_markup: view.reply_markup })
-    .catch(ignoreNotModified);
-  await ctx.answerCallbackQuery();
-});
-
-// Tap an entry → edit into its detail card (full note + date) with delete/back.
-bot.callbackQuery(new RegExp(`^${SHUKR_ENTRY_PREFIX}(\\d+)$`), async (ctx) => {
-  const user = await userFor(ctx);
-  if (!user) {
-    await ctx.answerCallbackQuery();
-    return;
-  }
-  const entryId = Number(ctx.match![1]);
-  const entries = await listShukr(user.id);
-  const entry = entries.find((e) => e.id === entryId);
-  if (!entry) {
-    // Deleted elsewhere meanwhile: fall back to the journal rather than error.
-    const view = await shukrJournalView(user, 1);
-    await ctx
-      .editMessageText(view.text, { reply_markup: view.reply_markup })
-      .catch(ignoreNotModified);
-    await ctx.answerCallbackQuery();
-    return;
-  }
-  await ctx
-    .editMessageText(
-      COPY.shukrEntryDetail(shortDateAr(entry.createdAt, user.timezone), entry.text),
-      {
-        reply_markup: buildShukrEntryKeyboard(entry.id),
-      },
-    )
-    .catch(ignoreNotModified);
-  await ctx.answerCallbackQuery();
-});
-
-// «حذف 🗑️» — delete the note and drop back to the (refreshed) journal.
-bot.callbackQuery(new RegExp(`^${SHUKR_REMOVE_PREFIX}(\\d+)$`), async (ctx) => {
-  const user = await userFor(ctx);
-  if (!user) {
-    await ctx.answerCallbackQuery();
-    return;
-  }
-  await removeShukr(user.id, Number(ctx.match![1]));
-  const view = await shukrJournalView(user, 1);
-  await ctx
-    .editMessageText(view.text, { reply_markup: view.reply_markup })
-    .catch(ignoreNotModified);
-  await ctx.answerCallbackQuery({ text: COPY.shukrRemoved });
-});
-
 // ─── Forget confirm / cancel ─────────────────────────────────────────
 
 bot.callbackQuery(FORGET_CONFIRM, async (ctx) => {
@@ -729,7 +594,7 @@ bot.callbackQuery(FORGET_CANCEL, async (ctx) => {
   await ctx.answerCallbackQuery();
 });
 
-// ─── Plain-text pending input (the /add name, the /shukr note) ────────
+// ─── Plain-text pending input (the /add name) ────────────────────────
 
 bot.on('message:text', async (ctx) => {
   // A "/command" is handled above; ignore anything that looks like one here so
@@ -748,24 +613,14 @@ bot.on('message:text', async (ctx) => {
   const user = await userFor(ctx);
   if (!user) return;
 
-  if (kind === 'add-name') {
-    const parsed = parsePersonInput(ctx.message.text);
-    if (!parsed) {
-      await ctx.reply(COPY.addEmpty);
-      return;
-    }
-    await addPerson(user.id, parsed.name, parsed.relation, user.defaultCadenceDays);
-    await ctx.reply(COPY.addedOne(personLabel(parsed.name, parsed.relation)));
+  // 'add-name' is currently the only pending kind: the next message is the name.
+  const parsed = parsePersonInput(ctx.message.text);
+  if (!parsed) {
+    await ctx.reply(COPY.addEmpty);
     return;
   }
-
-  // shukr-text. Guard against the rare case the user disabled it meanwhile.
-  if (!user.shukrEnabled) {
-    await ctx.reply(COPY.shukrNotEnabled);
-    return;
-  }
-  await addShukr(user.id, ctx.message.text.trim());
-  await ctx.reply(COPY.shukrSaved);
+  await addPerson(user.id, parsed.name, parsed.relation, user.defaultCadenceDays);
+  await ctx.reply(COPY.addedOne(personLabel(parsed.name, parsed.relation)));
 });
 
 // ─── Admin commands ──────────────────────────────────────────────────
@@ -812,7 +667,6 @@ async function setBotProfile() {
     { command: 'settings', description: 'تذكير الأقارب الجدد وساعات الهدوء' },
     { command: 'pause', description: 'إيقاف التذكيرات مؤقتًا' },
     { command: 'resume', description: 'استئناف التذكيرات' },
-    { command: 'shukr', description: 'دفتر الشكر: تدوين لحظات الامتنان وتصفّحها' },
     { command: 'forget', description: 'محو كل بياناتك' },
     { command: 'help', description: 'المساعدة' },
   ]);

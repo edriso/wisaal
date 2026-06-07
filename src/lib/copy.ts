@@ -87,27 +87,6 @@ export function lastContactedCompactAr(
   return relativeDayAr(localDaysBetween(timezone, lastContactedAt, now));
 }
 
-/** A short calendar date in the user's timezone, in Arabic-Indic digits, e.g.
- *  "٢٠٢٦/٠٦/٠٣". Used to date gratitude-journal entries. Wrapped ltr so the
- *  slashed number run renders correctly inside right-to-left text. */
-export function shortDateAr(date: Date, timezone: string): string {
-  const ymd = getLocalContext(timezone, date).date; // "YYYY-MM-DD"
-  const arabic = ymd.replace(/-/g, '/').replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
-  return ltr(arabic);
-}
-
-/** Longest gratitude preview shown on a journal button (kept short so the
- *  button stays on one line). */
-const SHUKR_PREVIEW_MAX = 30;
-
-/** A one-line, length-capped preview of a gratitude note for a button label. */
-export function shukrPreview(text: string): string {
-  const oneLine = text.replace(/\s+/g, ' ').trim();
-  return oneLine.length <= SHUKR_PREVIEW_MAX
-    ? oneLine
-    : `${oneLine.slice(0, SHUKR_PREVIEW_MAX - 1)}…`;
-}
-
 /**
  * The daily nudge. A gentle opening line, then the relative's name, a blank
  * line, then the encouragement (with its source if it carries one). Plain text
@@ -271,31 +250,6 @@ export const COPY = {
   forgetNothing: 'لا توجد بيانات لمحوها أصلًا 🌿',
   forgetCancelled: 'تمام، لم أمحُ شيئًا 🌿',
 
-  // ─── /shukr — the optional gratitude journal ─────────────────────────
-  // Onboarding text, shown only before the journal is enabled.
-  shukrIntro:
-    'دفتر الشكر ميزة اختيارية لطيفة: حين تُفعّلها، يمكنك تدوين لحظة امتنان قصيرة بعد كل وصل، والعودة إليها متى شئت لتتذكّر فضل الله عليك بأهلك. فعّلها بالزر.',
-  shukrEnableBtn: 'تفعيل دفتر الشكر 🤍',
-  shukrEnabled: 'تم تفعيل دفتر الشكر 🤍 اكتب الآن كلمةً عن وصلٍ أسعدك لأحفظها لك.',
-  shukrDisabled: `تم إيقاف دفتر الشكر 🌿 (محفوظاتك باقية، وتعود متى فعّلته بـ ${ltr('/shukr')}).`,
-  shukrSaved: `حفظتُها لك 🤍 الحمد لله على نعمة الأهل والأرحام. اكتب ${ltr('/shukr')} لتصفّح دفترك.`,
-  shukrNotEnabled: `دفتر الشكر غير مُفعّل. فعّله أولًا بـ ${ltr('/shukr')}.`,
-  // The journal browser (enabled, with entries).
-  shukrJournalHeader:
-    'دفتر الشكر 🤍 لحظاتك التي أسعدك فيها وصلُ الرحم. اضغط أيّ لحظة لقراءتها أو حذفها.',
-  // Enabled, but nothing recorded yet.
-  shukrEmpty: 'دفتر الشكر مُفعّل ولا توجد لحظات بعد 🤍 اضغط «أضف لحظة شكر» لتدوين أوّل لحظة.',
-  // One entry opened from the journal: its date, then the full note.
-  shukrEntryDetail: (dateAr: string, text: string) => `🤍 ${dateAr}\n\n${text}`,
-  shukrRemoved: 'حذفتُ تلك اللحظة 🌿',
-  // Prompt after tapping «أضف لحظة شكر».
-  shukrAddPrompt: 'اكتب لحظة امتنان قصيرة عن وصلٍ أسعدك، لأحفظها لك في دفترك 🤍',
-  // Journal buttons.
-  btnShukrAdd: '➕ أضف لحظة شكر',
-  btnShukrDisable: 'إيقاف الدفتر',
-  btnShukrRemove: 'حذف 🗑️',
-  btnShukrBack: '‹ رجوع للدفتر',
-
   // ─── /help — full command list ───────────────────────────────────────
   help: [
     'بوت «وصال» يذكّرك بلطف بصلة أرحامك، واحدًا تلو الآخر.',
@@ -307,7 +261,6 @@ export const COPY = {
     `${ltr('/now')} · تذكير فوري بمن يأتي دوره`,
     `${ltr('/settings')} · ضبط تذكير الأقارب الجدد وساعات الهدوء`,
     `${ltr('/pause')} · إيقاف التذكيرات، و${ltr('/resume')} للعودة`,
-    `${ltr('/shukr')} · دفتر الشكر: دوّن لحظات الامتنان وتصفّحها (اختياري)`,
     `${ltr('/forget')} · محو كل بياناتك`,
     `${ltr('/help')} · هذه القائمة`,
   ].join('\n'),

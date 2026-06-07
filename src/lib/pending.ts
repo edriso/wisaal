@@ -1,10 +1,10 @@
 // A tiny in-memory store for "the next plain message is the answer to a prompt"
-// flows: /add with no name, and /shukr after enabling. Kept deliberately simple
-// (a Map keyed by Telegram user id) — it is a convenience, not state we must not
-// lose: if the process restarts the user just re-runs the command. Single
-// process only, which matches the bot's single-instance model.
+// flows: currently just /add with no name. Kept deliberately simple (a Map keyed
+// by Telegram user id) — it is a convenience, not state we must not lose: if the
+// process restarts the user just re-runs the command. Single process only, which
+// matches the bot's single-instance model.
 
-export type PendingKind = 'add-name' | 'shukr-text';
+export type PendingKind = 'add-name';
 
 const pending = new Map<bigint, PendingKind>();
 

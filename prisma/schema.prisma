@@ -51,8 +51,6 @@ model User {
   // Reachability: set when Telegram tells us the user blocked the bot (or a
   // send fails with 403). Nudge loops filter `blocked = false`.
   blocked     Boolean   @default(false)
-  // Opt-in for the optional gratitude (shukr) prompts.
-  shukrEnabled Boolean  @default(false) @map("shukr_enabled")
 
   // When the last nudge was actually sent. Kept for diagnostics and so a /now
   // pull can record the day's nudge; eligibility itself is now decided per
@@ -61,9 +59,8 @@ model User {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  people      Person[]
-  nudgeLogs   NudgeLog[]
-  shukrEntries ShukrEntry[]
+  people    Person[]
+  nudgeLogs NudgeLog[]
 
   @@map("users")
 }
@@ -121,22 +118,4 @@ model NudgeLog {
   @@unique([userId, scheduledFor], map: "nudge_logs_user_date_key")
   @@index([userId])
   @@map("nudge_logs")
-}
-
-// ─── Gratitude (shukr) entries ──────────────────────────────────────
-//
-// An optional journal: short notes the user records when a connection went
-// well. Purely additive and encouraging; never surfaced as pressure.
-
-model ShukrEntry {
-  id     Int    @id @default(autoincrement())
-  userId Int    @map("user_id")
-  text   String @db.Text
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("shukr_entries")
 }

@@ -18,13 +18,9 @@ const h = vi.hoisted(() => ({
   setPersonCadence: vi.fn(),
   setSnooze: vi.fn(),
   setPaused: vi.fn(),
-  setShukrEnabled: vi.fn(),
   forgetUser: vi.fn(),
   claimNudge: vi.fn(),
   logAction: vi.fn(),
-  addShukr: vi.fn(),
-  listShukr: vi.fn(),
-  removeShukr: vi.fn(),
   updateSettings: vi.fn(),
   buildNudgeView: vi.fn(),
 }));
@@ -47,13 +43,9 @@ vi.mock('./database', () => ({
   setPersonCadence: h.setPersonCadence,
   setSnooze: h.setSnooze,
   setPaused: h.setPaused,
-  setShukrEnabled: h.setShukrEnabled,
   forgetUser: h.forgetUser,
   claimNudge: h.claimNudge,
   logAction: h.logAction,
-  addShukr: h.addShukr,
-  listShukr: h.listShukr,
-  removeShukr: h.removeShukr,
   updateSettings: h.updateSettings,
 }));
 vi.mock('./lib/deliver', () => ({ buildNudgeView: h.buildNudgeView }));
@@ -75,7 +67,6 @@ const USER = {
   snoozeUntil: null,
   paused: false,
   blocked: false,
-  shukrEnabled: false,
   lastNudgeAt: null,
 };
 
@@ -106,8 +97,6 @@ beforeEach(() => {
   h.markContacted.mockResolvedValue(true);
   h.setPersonCadence.mockResolvedValue(true);
   h.removePerson.mockResolvedValue(true);
-  h.listShukr.mockResolvedValue([]);
-  h.removeShukr.mockResolvedValue(true);
   h.claimNudge.mockResolvedValue('nudged');
   h.buildNudgeView.mockResolvedValue({
     message: 'نص التذكير',
@@ -440,82 +429,6 @@ describe('/settings default cadence', () => {
   it('ignores an out-of-range default value without writing', async () => {
     await bot.handleUpdate(callbackUpdate('tw:dcad:99'));
     expect(h.updateSettings).not.toHaveBeenCalled();
-    expect(answers().length).toBe(1);
-  });
-});
-
-describe('/shukr gratitude journal', () => {
-  const enabledUser = { ...USER, shukrEnabled: true };
-  const ENTRIES = [
-    { id: 6, text: 'اطمأننتُ على جدتي اليوم', createdAt: new Date(2026, 5, 2) },
-    { id: 5, text: 'اتصلتُ بخالي بعد طول غياب', createdAt: new Date(2026, 5, 1) },
-  ];
-
-  it('not enabled: shows the intro with a single enable button', async () => {
-    await bot.handleUpdate(textUpdate('/shukr'));
-    expect(lastKeyboardData()).toEqual(['tw:shukr:toggle']);
-  });
-
-  it('enabled + empty: shows the empty state with add / disable footer', async () => {
-    h.getOrCreateUser.mockResolvedValue(enabledUser);
-    h.listShukr.mockResolvedValue([]);
-    await bot.handleUpdate(textUpdate('/shukr'));
-    expect(lastKeyboardData()).toEqual(['tw:shukr:add', 'tw:shukr:toggle']);
-  });
-
-  it('enabled + entries: lists each note (newest first) then the footer', async () => {
-    h.getOrCreateUser.mockResolvedValue(enabledUser);
-    h.listShukr.mockResolvedValue(ENTRIES);
-    await bot.handleUpdate(textUpdate('/shukr'));
-    expect(lastKeyboardData()).toEqual([
-      'tw:shukr:e:6',
-      'tw:shukr:e:5',
-      'tw:shukr:add',
-      'tw:shukr:toggle',
-    ]);
-  });
-
-  it('"/shukr <text>" adds a note inline when enabled', async () => {
-    h.getOrCreateUser.mockResolvedValue(enabledUser);
-    await bot.handleUpdate(textUpdate('/shukr الحمد لله على صلة رحمي'));
-    expect(h.addShukr).toHaveBeenCalledTimes(1);
-    expect(h.addShukr).toHaveBeenCalledWith(1, 'الحمد لله على صلة رحمي');
-  });
-
-  it('tapping an entry opens its detail card with delete / back', async () => {
-    h.getOrCreateUser.mockResolvedValue(enabledUser);
-    h.listShukr.mockResolvedValue(ENTRIES);
-    await bot.handleUpdate(callbackUpdate('tw:shukr:e:5'));
-    expect(lastEditData()).toEqual(['tw:shukr:rm:5', 'tw:shukr:p:1']);
-    expect(answers().length).toBe(1);
-  });
-
-  it('deleting a note calls removeShukr once and returns to the journal', async () => {
-    h.getOrCreateUser.mockResolvedValue(enabledUser);
-    h.listShukr.mockResolvedValue(ENTRIES);
-    await bot.handleUpdate(callbackUpdate('tw:shukr:rm:5'));
-    expect(h.removeShukr).toHaveBeenCalledTimes(1);
-    expect(h.removeShukr).toHaveBeenCalledWith(1, 5);
-    // Back on the journal list (its entry + footer buttons).
-    expect(lastEditData()).toEqual([
-      'tw:shukr:e:6',
-      'tw:shukr:e:5',
-      'tw:shukr:add',
-      'tw:shukr:toggle',
-    ]);
-    expect(answers().length).toBe(1);
-  });
-
-  it('the add button arms the next-message capture (one reply, one answer)', async () => {
-    h.getOrCreateUser.mockResolvedValue(enabledUser);
-    await bot.handleUpdate(callbackUpdate('tw:shukr:add'));
-    expect(sends().length).toBe(1); // the "write your note" prompt
-    expect(answers().length).toBe(1);
-  });
-
-  it('enabling from the intro flips the flag and arms capture', async () => {
-    await bot.handleUpdate(callbackUpdate('tw:shukr:toggle')); // USER starts disabled
-    expect(h.setShukrEnabled).toHaveBeenCalledWith(1, true);
     expect(answers().length).toBe(1);
   });
 });

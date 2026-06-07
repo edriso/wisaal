@@ -59,7 +59,6 @@ remove them. Long circles paginate eight at a time.
 | `/now`      | Nudge me right now about whoever is next           |
 | `/settings` | Cadence, quiet hours, and pause/resume (buttons)   |
 | `/pause`    | Pause nudges (and `/resume` to come back)          |
-| `/shukr`    | Opt-in gratitude journal (off by default)          |
 | `/forget`   | Wipe ALL your data (confirm first)                 |
 | `/help`     | Show the command list                              |
 
