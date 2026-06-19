@@ -1,4 +1,5 @@
 import { Bot, type Context } from 'grammy';
+import { autoRetry } from '@grammyjs/auto-retry';
 import {
   getOrCreateUser,
   updateSettings,
@@ -61,6 +62,23 @@ import {
 import { takePending, setPending, clearPending } from './lib/pending';
 
 const bot = new Bot<Context>(config.botToken);
+
+// Smooth Telegram's rate limits. The daily batch sends to every due subscriber
+// in one minute-tick, so a moment when many share a send time can burst past
+// Telegram's flood limit and earn a 429. auto-retry catches that at the
+// transformer layer for EVERY api call, waits the server's retry_after, and
+// retries — instead of dropping the message. Bounded (3 tries, ≤30s) and scoped
+// to rate limits only (other errors rethrow, so the per-send wrappers still
+// classify 403/blocked and transient failures as before). grammY recommends
+// auto-retry over the throttler plugin.
+bot.api.config.use(
+  autoRetry({
+    maxRetryAttempts: 3,
+    maxDelaySeconds: 30,
+    rethrowInternalServerErrors: true,
+    rethrowHttpErrors: true,
+  }),
+);
 
 // "Remind me later" pushes the next nudge out by roughly one day.
 // isUserAvailable suppresses nudges while snoozeUntil is ahead of now, so this

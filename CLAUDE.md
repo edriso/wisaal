@@ -165,6 +165,12 @@ it with `pnpm db:deploy`.
   git-ignored. Run `pnpm db:generate` if imports from it fail.
 - Quiet hours and cadence math always take `now` as an argument so they can be
   tested. Do not call `new Date()` deep inside pure functions.
+- Rate limits: the `@grammyjs/auto-retry` transformer is installed on the bot
+  (`bot.api.config.use(autoRetry(...))` in `bot.ts`). It transparently waits out
+  a Telegram 429 (`retry_after`) and retries, for every API call, so a burst when
+  many subscribers share a send minute does not drop messages. Bounded (3 tries,
+  ≤30s) and scoped to rate limits only; the per-send wrappers still classify
+  403/blocked and other failures. grammY recommends auto-retry over the throttler.
 
 ## Where things live
 
