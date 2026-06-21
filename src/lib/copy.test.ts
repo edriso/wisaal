@@ -8,7 +8,7 @@ import {
   lastContactedCompactAr,
   COPY,
 } from './copy';
-import { QUIET_OPTIONS } from './keyboards';
+import { QUIET_OPTIONS, GUIDE_CATEGORIES } from './keyboards';
 import type { Reminder } from '../database/reference/reminders';
 
 const withSource: Reminder = { text: 'متن التذكير.', source: 'البخاري ٠' };
@@ -34,7 +34,10 @@ describe('voice stays modern standard Arabic (no dialect)', () => {
   }
 
   it('uses no colloquial words anywhere in the bot copy', () => {
-    const haystack = [...renderedCopy(), ...QUIET_OPTIONS.map((o) => o.label)].join('\n');
+    const guideText = GUIDE_CATEGORIES.flatMap((c) => [c.label, c.promptWho ?? '']);
+    const haystack = [...renderedCopy(), ...QUIET_OPTIONS.map((o) => o.label), ...guideText].join(
+      '\n',
+    );
     for (const word of DIALECT_WORDS) {
       expect(haystack.includes(word), `found dialect word «${word}» in copy`).toBe(false);
     }

@@ -40,6 +40,11 @@ import {
   buildQuietKeyboard,
   buildSettingsKeyboard,
   buildForgetKeyboard,
+  buildGuideKeyboard,
+  buildGuideOpenKeyboard,
+  GUIDE_OPEN,
+  GUIDE_PREFIX,
+  GUIDE_CATEGORIES,
   ACTION_PREFIX,
   ACTION_CONTACTED,
   ACTION_SNOOZE,
@@ -180,7 +185,9 @@ bot.command('start', async (ctx) => {
   // they have ever added anyone.
   const people = await listPeople(user.id);
   if (people.length === 0) {
-    await ctx.reply(COPY.welcomeNew);
+    // Offer the «من أصِل؟» guide so a brand-new user can build their circle by
+    // tapping instead of recalling everyone from a blank prompt.
+    await ctx.reply(COPY.welcomeNew, { reply_markup: buildGuideOpenKeyboard() });
     return;
   }
   await ctx.reply(COPY.welcome(settingsSummary(user)));
@@ -195,8 +202,10 @@ bot.command('add', async (ctx) => {
   if (!user) return;
   const arg = commandArg(ctx, 'add');
   if (!arg) {
-    setPending(BigInt(ctx.from!.id), 'add-name');
-    await ctx.reply(COPY.addPrompt);
+    // Plain add: the next message is parsed as "name [relation]" at the user's
+    // default cadence. Also offer the guide for a tap-to-build alternative.
+    setPending(BigInt(ctx.from!.id), { relation: null, cadenceDays: null });
+    await ctx.reply(COPY.addPrompt, { reply_markup: buildGuideOpenKeyboard() });
     return;
   }
   const parsed = parsePersonInput(arg);
@@ -372,6 +381,45 @@ bot.callbackQuery(new RegExp(`^${REMOVE_PREFIX}(\\d+)$`), async (ctx) => {
   if (removed && target) {
     await ctx.reply(COPY.removedOne(personLabel(target.name, target.relation)));
   }
+  await ctx.answerCallbackQuery();
+});
+
+// ─── «من أصِل؟» guide ─────────────────────────────────────────────────
+
+// Open the guide: show the relatives categories, ordered الأقرب فالأقرب.
+// Registered before the per-category handler below so "open" never falls
+// through to it.
+bot.callbackQuery(GUIDE_OPEN, async (ctx) => {
+  await ctx.reply(COPY.guideHeader, { reply_markup: buildGuideKeyboard() });
+  await ctx.answerCallbackQuery();
+});
+
+// Tap a category. Parents add instantly (one tap, no name). Every other chip
+// presets the relation + cadence and waits for the next message (the name);
+// «قريب آخر» presets nothing, so it is exactly the plain /add flow.
+bot.callbackQuery(new RegExp(`^${GUIDE_PREFIX}(\\w+)$`), async (ctx) => {
+  const user = await userFor(ctx);
+  if (!user) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  const key = ctx.match![1];
+  const cat = GUIDE_CATEGORIES.find((c) => c.key === key);
+  if (!cat) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  if (cat.instant && cat.name) {
+    await addPerson(user.id, cat.name, null, cat.cadenceDays ?? user.defaultCadenceDays);
+    await ctx.editMessageReplyMarkup().catch(ignoreNotModified); // drop the chips
+    // The ack speaks to the user in the 2nd person (والدك / والدتك), even though
+    // the stored name is the neutral الوالد / الوالدة.
+    await ctx.reply(COPY.addedOne(key === 'ab' ? 'والدك' : 'والدتك'));
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  setPending(BigInt(ctx.from!.id), { relation: cat.relation, cadenceDays: cat.cadenceDays });
+  await ctx.reply(cat.promptWho ? COPY.guideAddPrompt(cat.promptWho) : COPY.addPrompt);
   await ctx.answerCallbackQuery();
 });
 
@@ -623,22 +671,38 @@ bot.on('message:text', async (ctx) => {
   }
   if (!ctx.from) return;
   const telegramId = BigInt(ctx.from.id);
-  const kind = takePending(telegramId);
-  if (!kind) {
+  const pending = takePending(telegramId);
+  if (!pending) {
     await ctx.reply(COPY.fallback);
     return;
   }
   const user = await userFor(ctx);
   if (!user) return;
 
-  // 'add-name' is currently the only pending kind: the next message is the name.
-  const parsed = parsePersonInput(ctx.message.text);
-  if (!parsed) {
-    await ctx.reply(COPY.addEmpty);
-    return;
+  // The only pending flow is adding a person. When a guide chip preset the
+  // relation, the whole message is the name; a plain /add parses "name
+  // [relation]" from the text. Cadence comes from the chip, else the default.
+  let name: string;
+  let relation: string | null;
+  if (pending.relation !== null) {
+    name = ctx.message.text.trim().replace(/\s+/g, ' ');
+    relation = pending.relation;
+    if (name === '') {
+      await ctx.reply(COPY.addEmpty);
+      return;
+    }
+  } else {
+    const parsed = parsePersonInput(ctx.message.text);
+    if (!parsed) {
+      await ctx.reply(COPY.addEmpty);
+      return;
+    }
+    name = parsed.name;
+    relation = parsed.relation;
   }
-  await addPerson(user.id, parsed.name, parsed.relation, user.defaultCadenceDays);
-  await ctx.reply(COPY.addedOne(personLabel(parsed.name, parsed.relation)));
+  const cadenceDays = pending.cadenceDays ?? user.defaultCadenceDays;
+  await addPerson(user.id, name, relation, cadenceDays);
+  await ctx.reply(COPY.addedOne(personLabel(name, relation)));
 });
 
 // ─── Admin commands ──────────────────────────────────────────────────

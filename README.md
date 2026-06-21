@@ -40,6 +40,14 @@ When a nudge arrives it carries three inline buttons:
 - **«ذكّرني لاحقًا ⏰»**: snooze about a day; the next cycle is skipped softly.
 - **«تخطّي»**: skip this one with no pressure; the same person stays next.
 
+**Building your circle.** A brand-new user (and the no-name `/add` prompt) is
+offered a gentle **«من أصِل؟»** guide: tappable categories of relatives ordered
+الأقرب فالأقرب (parents → siblings → grandparents → aunts & uncles → others).
+Parents add in one tap; the rest preset the relation and ask for a name. Each
+category seeds a starting cadence by closeness (parents/siblings weekly,
+grandparents/aunts/uncles fortnightly, distant relatives monthly), still tunable
+per person from `/list`. It is just a guided `/add` — no new data is stored.
+
 `/list` is an interactive browser of your circle, sorted by who you have gone
 longest without reaching (the same order the nudge picks). Tap a name to open a
 small detail card (their relation and last contact) where you can mark
@@ -52,7 +60,7 @@ remove them. Long circles paginate eight at a time.
 | Command     | What it does                                       |
 | ----------- | -------------------------------------------------- |
 | `/start`    | Warm onboarding + privacy note; prompts you to add |
-| `/add`      | `/add <name> [relation]`, or send the name next    |
+| `/add`      | `/add <name> [relation]`, or send the name next (or tap «من أصِل؟» to build your circle from a guided list) |
 | `/list`     | Interactive, sorted browser of your circle (most-due first); tap a name to see their last contact and mark «تواصلت» or remove (paginated) |
 | `/remove`   | Inline buttons to remove someone                   |
 | `/now`      | Nudge me right now about whoever is next           |

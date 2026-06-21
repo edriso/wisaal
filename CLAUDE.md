@@ -97,11 +97,21 @@ but deliberately does NOT `claimNudge`: it just records the good deed, so the
 daily nudge keeps its own rhythm. Because both the list and the rotation sort by
 `lastContactedAt`, marking contacted drops that person to the back of both.
 
+A brand-new user (and the no-name `/add` prompt) is offered the **«من أصِل؟»**
+guide: a keyboard of relative categories, ordered الأقرب فالأقرب, defined once in
+`GUIDE_CATEGORIES` (`src/lib/keyboards.ts`). Parent chips add instantly as a
+neutral MSA name (`الوالد`/`الوالدة`, which reads correctly wherever the bot
+speaks it); every other chip presets a 1st-person `relation` (`عمّي`, like
+today's `خالتي فاطمة`) and a cadence seeded by closeness, then waits for the
+name. It is purely a guided `/add` — it reuses `addPerson`, `Person.relation`,
+and `Person.cadenceDays`; no new data. Keep it warm and never obligation-shaming.
+
 The visible commands and their handlers live in `src/bot.ts`; the inline
 keyboards (and their callback-data prefixes) live in `src/lib/keyboards.ts`; the
-bare-text pending-input flows (currently just the `/add` name) live in
-`src/lib/pending.ts`. `/forget` deletes the `User` row, which cascades to people
-and nudge logs.
+bare-text pending-input flow lives in `src/lib/pending.ts` (one flow — adding a
+person — whose `PendingAdd` payload carries the relation + cadence a guide chip
+preset; both null means a plain `/add`). `/forget` deletes the `User` row, which
+cascades to people and nudge logs.
 
 ## Golden rules
 
@@ -186,6 +196,7 @@ it with `pnpm db:deploy`.
 - Database services: `src/database/services/{user,person,nudge}.service.ts`
 - Commands + callbacks: `src/bot.ts`
 - Inline keyboards + callback-data prefixes: `src/lib/keyboards.ts`
-- Bare-text pending input (currently just the `/add` name): `src/lib/pending.ts`
+- Bare-text pending input (the `/add` name; `PendingAdd` payload): `src/lib/pending.ts`
+- «من أصِل؟» guide categories (`GUIDE_CATEGORIES`): `src/lib/keyboards.ts`
 - Per-minute scheduler + running-lock: `src/scheduler.ts`
 - Boot (config → bot → scheduler → health, graceful shutdown): `src/index.ts`

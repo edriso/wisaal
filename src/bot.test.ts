@@ -229,6 +229,47 @@ describe('/add', () => {
     // The 4th arg is the user's defaultCadenceDays (7 in the fixture).
     expect(h.addPerson).toHaveBeenCalledWith(1, 'فاطمة', 'خالتي', 7);
   });
+
+  it('with no name, prompts and adds the next message at the default cadence', async () => {
+    await bot.handleUpdate(textUpdate('/add'));
+    expect(h.addPerson).not.toHaveBeenCalled(); // just the prompt
+    await bot.handleUpdate(textUpdate('خالد'));
+    expect(h.addPerson).toHaveBeenCalledTimes(1);
+    expect(h.addPerson).toHaveBeenCalledWith(1, 'خالد', null, 7);
+  });
+});
+
+describe('«من أصِل؟» guide', () => {
+  it('opens the category keyboard', async () => {
+    await bot.handleUpdate(callbackUpdate('tw:guide:open'));
+    const opened = sends().find((c) => c.payload.reply_markup);
+    expect(opened).toBeTruthy();
+    expect(answers().length).toBe(1);
+  });
+
+  it('adds a parent in one tap (neutral stored name, seeded weekly cadence)', async () => {
+    await bot.handleUpdate(callbackUpdate('tw:guide:ab'));
+    expect(h.addPerson).toHaveBeenCalledTimes(1);
+    expect(h.addPerson).toHaveBeenCalledWith(1, 'الوالد', null, 7);
+    // One tap is the whole flow: a following plain message must NOT add again.
+    await bot.handleUpdate(textUpdate('شيء عابر'));
+    expect(h.addPerson).toHaveBeenCalledTimes(1);
+  });
+
+  it('presets relation + cadence for a non-parent chip, adding on the next message', async () => {
+    await bot.handleUpdate(callbackUpdate('tw:guide:amm')); // عمّي, fortnightly
+    expect(h.addPerson).not.toHaveBeenCalled(); // waits for the name
+    await bot.handleUpdate(textUpdate('محمد'));
+    expect(h.addPerson).toHaveBeenCalledTimes(1);
+    expect(h.addPerson).toHaveBeenCalledWith(1, 'محمد', 'عمّي', 14);
+  });
+
+  it('«قريب آخر» falls back to the plain add flow (parse + default cadence)', async () => {
+    await bot.handleUpdate(callbackUpdate('tw:guide:other'));
+    expect(h.addPerson).not.toHaveBeenCalled();
+    await bot.handleUpdate(textUpdate('خالتي فاطمة'));
+    expect(h.addPerson).toHaveBeenCalledWith(1, 'فاطمة', 'خالتي', 7);
+  });
 });
 
 describe('/forget', () => {

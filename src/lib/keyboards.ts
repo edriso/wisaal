@@ -43,6 +43,53 @@ export const DEFAULT_CADENCE_PREFIX = 'tw:dcad:';
 // fortnightly, monthly. Weekly is the default for a new relative.
 export const CADENCE_OPTIONS = [1, 3, 7, 14, 30] as const;
 
+// The «من أصِل؟» guide. Opening is "tw:guide:open"; a category chip is
+// "tw:guide:<key>" (a short ascii key, well inside Telegram's 64-byte limit).
+export const GUIDE_PREFIX = 'tw:guide:';
+export const GUIDE_OPEN = `${GUIDE_PREFIX}open`;
+
+/**
+ * The relatives the guide offers, ordered الأقرب فالأقرب (closest first), so a
+ * new user can build their circle by tapping rather than recalling everyone.
+ *
+ * `label` is the user's own voice («أبي», «عمّي») — what they tap. A parent chip
+ * is `instant`: one tap adds them as the neutral MSA `name` (الوالد/الوالدة),
+ * which reads correctly wherever the bot speaks it. Every other chip presets a
+ * 1st-person `relation` (عمّي, خالتي — the same style as today's «خالتي فاطمة»)
+ * and prompts for a name in the 2nd person (`promptWho`: عمّك, خالك). `cadence`
+ * is seeded by closeness (closer kin more often); each is still tunable per
+ * person from /list. `قريب آخر` falls back to the plain /add flow (cadence null
+ * → the user's default).
+ */
+export interface GuideCategory {
+  key: string;
+  label: string;
+  /** Stored name for an instant (parent) add; undefined for prompted chips. */
+  name?: string;
+  /** Preset 1st-person relation for prompted chips; null for the free «آخر». */
+  relation: string | null;
+  /** 2nd-person form for the name prompt («اكتب اسم عمّك»); omit for instant. */
+  promptWho?: string;
+  /** Whole days to wait between reminders; null → fall back to the user default. */
+  cadenceDays: number | null;
+  /** True for the parent chips: tap adds immediately, no name needed. */
+  instant?: boolean;
+}
+
+export const GUIDE_CATEGORIES: readonly GuideCategory[] = [
+  { key: 'ab', label: 'أبي', name: 'الوالد', relation: null, cadenceDays: 7, instant: true },
+  { key: 'um', label: 'أمّي', name: 'الوالدة', relation: null, cadenceDays: 7, instant: true },
+  { key: 'akh', label: 'أخي', relation: 'أخي', promptWho: 'أخيك', cadenceDays: 7 },
+  { key: 'ukht', label: 'أختي', relation: 'أختي', promptWho: 'أختك', cadenceDays: 7 },
+  { key: 'jad', label: 'جدّي', relation: 'جدّي', promptWho: 'جدّك', cadenceDays: 14 },
+  { key: 'jadda', label: 'جدّتي', relation: 'جدّتي', promptWho: 'جدّتك', cadenceDays: 14 },
+  { key: 'amm', label: 'عمّي', relation: 'عمّي', promptWho: 'عمّك', cadenceDays: 14 },
+  { key: 'amma', label: 'عمّتي', relation: 'عمّتي', promptWho: 'عمّتك', cadenceDays: 14 },
+  { key: 'khal', label: 'خالي', relation: 'خالي', promptWho: 'خالك', cadenceDays: 14 },
+  { key: 'khala', label: 'خالتي', relation: 'خالتي', promptWho: 'خالتك', cadenceDays: 14 },
+  { key: 'other', label: 'قريب آخر', relation: null, cadenceDays: null },
+];
+
 // Quiet-hours picker. A small set of friendly windows, e.g. "tw:quiet:22:8".
 export const QUIET_PREFIX = 'tw:quiet:';
 export const QUIET_OPTIONS: ReadonlyArray<{ start: number; end: number; label: string }> = [
@@ -196,4 +243,28 @@ export function buildForgetKeyboard(): InlineKeyboard {
     .text(COPY.forgetConfirmBtn, FORGET_CONFIRM)
     .row()
     .text(COPY.forgetCancelBtn, FORGET_CANCEL);
+}
+
+/** A single «من أصِل؟» button that opens the guide. Offered on the onboarding
+ *  and the /add prompt so a new user can build their circle by tapping. */
+export function buildGuideOpenKeyboard(): InlineKeyboard {
+  return new InlineKeyboard().text(COPY.guideOpenBtn, GUIDE_OPEN);
+}
+
+/**
+ * The «من أصِل؟» category keyboard: the gendered pairs two per row, ordered
+ * الأقرب فالأقرب, with «قريب آخر» on its own row last. The order follows
+ * GUIDE_CATEGORIES, so the table is the single source of truth.
+ */
+export function buildGuideKeyboard(): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  const last = GUIDE_CATEGORIES.length - 1;
+  GUIDE_CATEGORIES.forEach((cat, i) => {
+    kb.text(cat.label, `${GUIDE_PREFIX}${cat.key}`);
+    // Break after the second chip of each pair, but never after the final one
+    // (a trailing row() would leave an empty row). With the gendered pairs first
+    // and the lone «قريب آخر» last, this lands «قريب آخر» on its own row.
+    if (i % 2 === 1 && i !== last) kb.row();
+  });
+  return kb;
 }

@@ -168,6 +168,18 @@ export const COPY = {
   // Returning user: a short greeting plus their current settings summary.
   welcome: (summary: string) => `أهلًا بعودتك إلى «وصال» 🌿\n\n${summary}`,
 
+  // ─── «من أصِل؟» — the gentle guided relatives builder ────────────────
+  // The button that opens the guide (offered on onboarding and the /add prompt).
+  guideOpenBtn: 'من أصِل؟ 👨‍👩‍👧',
+  // Header above the category chips. Warm and encouraging: it frames the order
+  // as الأقرب فالأقرب and reassures that everyone is على الخير — never a duty
+  // to discharge.
+  guideHeader:
+    'هؤلاء بعض أرحامك، من الأقرب فالأقرب. اختر من تحبّ أن تبدأ بصلته، والبقيّة على الخير بإذن الله 🤍',
+  // The name prompt after tapping a (non-parent) category. `who` is the
+  // 2nd-person form, e.g. «عمّك»: "اكتب اسم عمّك".
+  guideAddPrompt: (who: string) => `اكتب اسم ${who}.`,
+
   // ─── Adding / listing / removing people ──────────────────────────────
   addPrompt: 'اكتب اسم الشخص الذي تريد إضافته (ويمكنك إضافة صلة القرابة، مثل: خالتي فاطمة).',
   addEmpty: 'لم أتمكن من قراءة الاسم. حاول مرة أخرى بكتابة الاسم فقط.',
