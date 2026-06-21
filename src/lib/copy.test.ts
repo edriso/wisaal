@@ -8,10 +8,38 @@ import {
   lastContactedCompactAr,
   COPY,
 } from './copy';
+import { QUIET_OPTIONS } from './keyboards';
 import type { Reminder } from '../database/reference/reminders';
 
 const withSource: Reminder = { text: 'متن التذكير.', source: 'البخاري ٠' };
 const noSource: Reminder = { text: 'تذكير لطيف.', source: null };
+
+describe('voice stays modern standard Arabic (no dialect)', () => {
+  // The bot speaks فصحى, never dialect. This guard scans every piece of the
+  // bot's OWN copy — the static strings and the rendered output of the
+  // message-building functions, plus the inline button labels — for a few
+  // distinctive colloquial words, so dialect can never quietly creep back in.
+  // The authentic reminder content is out of scope (see reminders.ts).
+  const DIALECT_WORDS = ['بعدين', 'دلوقتي', 'عشان', 'كده', 'إزاي', 'عايز'];
+
+  // Render every COPY value to a string: plain strings as-is, and functions
+  // called with simple placeholder args (one 'س' per parameter) so their
+  // wording is covered too.
+  function renderedCopy(): string[] {
+    return Object.values(COPY).flatMap((value) => {
+      if (typeof value === 'string') return [value];
+      const args = Array.from({ length: value.length }, () => 'س');
+      return [String((value as (...a: unknown[]) => string)(...args))];
+    });
+  }
+
+  it('uses no colloquial words anywhere in the bot copy', () => {
+    const haystack = [...renderedCopy(), ...QUIET_OPTIONS.map((o) => o.label)].join('\n');
+    for (const word of DIALECT_WORDS) {
+      expect(haystack.includes(word), `found dialect word «${word}» in copy`).toBe(false);
+    }
+  });
+});
 
 describe('personLabel', () => {
   it('joins a relation with the name', () => {

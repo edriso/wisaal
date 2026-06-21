@@ -199,7 +199,7 @@ describe('nudge action: «تواصلت ✅»', () => {
   });
 });
 
-describe('nudge action: «فكّرني بعدين ⏰»', () => {
+describe('nudge action: «ذكّرني لاحقًا ⏰»', () => {
   it('snoozes once and logs the action', async () => {
     await bot.handleUpdate(callbackUpdate('tw:act:snooze:10'));
 

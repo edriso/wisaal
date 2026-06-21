@@ -11,19 +11,18 @@ love, and the bot speaks that way.
 It is one small TypeScript project, with everything under `src/`:
 
 - `src/core`: pure logic, no database, no network. Fully unit-tested.
-- `src/database`: the Prisma client and (in later phases) the database
-  services. Reference content (the reminders) lives in
-  `src/database/reference`.
+- `src/database`: the Prisma client and the database services. Reference
+  content (the reminders) lives in `src/database/reference`.
 - `src/` (bot, scheduler, lib/, …): the grammY bot, the database services, and
   the per-minute nudge scheduler.
 
 The cross-bot kernel lives in **`telegram-bot-kit`** (a separate public repo,
-pinned by git tag in `package.json`): the timezone/schedule math, the
-active-day helpers, Arabic-Indic digits, the root `.env` loader, the logger,
-and the plain-text send wrapper. The matching files here
-(`src/core/{schedule,days,arabic,env}.ts`, `src/lib/{send,logger}.ts`) are
-one-line re-export shims, so the shared code lives (and is tested) once, in the
-kernel. The `ayah` and `tilawah` bots consume the same kernel.
+pinned by git tag in `package.json`): the timezone/schedule math, Arabic-Indic
+digits, the root `.env` loader, the logger, and the plain-text send wrapper. The
+matching files here (`src/core/{schedule,arabic,env}.ts`,
+`src/lib/{send,logger}.ts`) are one-line re-export shims, so the shared code
+lives (and is tested) once, in the kernel. The `ayah` and `tilawah` bots consume
+the same kernel.
 
 ## How it works
 
@@ -38,7 +37,7 @@ When a nudge arrives it carries three inline buttons:
 
 - **«تواصلت ✅»**: you reached out. The person moves to the back of the rotation
   (their `lastContactedAt` is set to now) and the bot replies warmly.
-- **«فكّرني بعدين ⏰»**: snooze about a day; the next cycle is skipped softly.
+- **«ذكّرني لاحقًا ⏰»**: snooze about a day; the next cycle is skipped softly.
 - **«تخطّي»**: skip this one with no pressure; the same person stays next.
 
 `/list` is an interactive browser of your circle, sorted by who you have gone

@@ -26,12 +26,12 @@ It is one small TypeScript project, everything under `src/`:
   `prisma/` holds the schema and migrations.
 
 The cross-bot kernel lives in **`telegram-bot-kit`** (a separate public repo,
-pinned by git tag in `package.json`): timezone/schedule math, the active-day
-bitmask, Arabic-Indic digits, the root `.env` loader, the logger, and the
-plain-text send wrapper. The matching files here
-(`src/core/{schedule,days,arabic,env}.ts`, `src/lib/{send,logger}.ts`) are
-one-line re-export shims, so the shared code lives (and is tested) once, in the
-kernel. To change that code: edit the kernel, tag a new version, and bump the
+pinned by git tag in `package.json`): timezone/schedule math, Arabic-Indic
+digits, the root `.env` loader, the logger, and the plain-text send wrapper.
+(The kernel also carries the active-day bitmask used by `ayah`, but Wisaal is
+cadence-based and does not use it.) The matching files here
+(`src/core/{schedule,arabic,env}.ts`, `src/lib/{send,logger}.ts`) are one-line
+re-export shims, so the shared code lives (and is tested) once, in the kernel. To change that code: edit the kernel, tag a new version, and bump the
 pin here. The `ayah` and `tilawah` bots consume the same kernel.
 
 ## How a nudge gets decided
@@ -174,7 +174,7 @@ it with `pnpm db:deploy`.
 
 ## Where things live
 
-- Shared kernel (schedule, days, arabic, env, logger, send): the
+- Shared kernel (schedule, arabic, env, logger, send): the
   `telegram-bot-kit` package; the matching `src/core/*` and
   `src/lib/{send,logger}.ts` files are re-export shims.
 - Rotation logic: `src/core/rotation.ts`

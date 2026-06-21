@@ -150,7 +150,7 @@ export const COPY = {
   // After "remind me later" / snooze.
   snoozed: 'لا بأس، سأذكّرك لاحقًا بإذن الله. خذ وقتك 🤍',
   // After "skip this one" — move the rotation along with no pressure.
-  skipped: 'تمام، سننتقل إلى غيره في المرة القادمة بإذن الله 🤍',
+  skipped: 'حسنًا، سننتقل إلى غيره في المرة القادمة بإذن الله 🤍',
 
   // ─── Onboarding ──────────────────────────────────────────────────────
   // Brand-new user. A warm intro to صلة الرحم, a one-line privacy note, and a
@@ -207,21 +207,18 @@ export const COPY = {
   btnBackToPerson: '‹ رجوع',
   // The per-relative cadence picker, opened from a person's card.
   personCadencePrompt: (display: string) => `كل كم تحب أن نذكّرك بصلة ${display}؟`,
-  personCadenceUpdated: (display: string, summary: string) =>
-    `تمام، سنذكّرك بصلة ${display} ${summary} 🤍`,
 
-  // ─── Settings: default cadence, quiet hours, timezone, pause ─────────
+  // ─── Settings: default cadence, quiet hours, pause ───────────────────
   settingsHeader: 'إعداداتك الحالية:',
   settingsDefaultCadenceBtn: '⏱️ تذكير الأقارب الجدد',
   // The default-cadence picker, opened from /settings. Sets the starting
   // cadence new relatives inherit; existing ones keep their own.
   defaultCadencePrompt:
     'كل كم تحب أن نذكّرك بالأقارب الذين تضيفهم لاحقًا؟\n\n(لن يتغيّر إعداد من أضفتهم سابقًا؛ كل قريب يُضبط من قائمته في /list.)',
-  defaultCadenceUpdated: (summary: string) => `تمام، سنذكّرك بالأقارب الجدد ${summary} 🤍`,
+  defaultCadenceUpdated: (summary: string) => `حسنًا، سنذكّرك بالأقارب الجدد ${summary} 🤍`,
   settingsQuietBtn: '🌙 ساعات الهدوء',
   quietPrompt: 'في أي ساعات تحب ألّا تصلك التذكيرات؟',
   quietUpdated: (window: string) => `تم ضبط ${window} ✅`,
-  tzUpdated: (tz: string) => `تم ضبط المنطقة الزمنية على ${ltr(tz)} ✅`,
 
   // ─── /now — send a nudge immediately, outside the schedule ───────────
   nowNoPeople: `أضِف أحدًا إلى عائلتك أولًا (بـ ${ltr('/add')}) حتى أذكّرك بصلته 🤍`,
@@ -230,7 +227,7 @@ export const COPY = {
 
   // ─── Nudge action button labels ──────────────────────────────────────
   btnContacted: 'تواصلت ✅',
-  btnSnooze: 'فكّرني بعدين ⏰',
+  btnSnooze: 'ذكّرني لاحقًا ⏰',
   btnSkip: 'تخطّي',
 
   // ─── Pause / resume ──────────────────────────────────────────────────
@@ -248,7 +245,7 @@ export const COPY = {
   forgetCancelBtn: 'تراجع',
   forgetDone: 'تم محو كل بياناتك. نسأل الله أن يصل قلبك بأرحامك دائمًا 🤍',
   forgetNothing: 'لا توجد بيانات لمحوها أصلًا 🌿',
-  forgetCancelled: 'تمام، لم أمحُ شيئًا 🌿',
+  forgetCancelled: 'حسنًا، لم أمحُ شيئًا 🌿',
 
   // ─── /help — full command list ───────────────────────────────────────
   help: [
