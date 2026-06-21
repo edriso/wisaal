@@ -80,7 +80,7 @@ One user failing is caught and never stops the rest of the batch.
 pulls their nudge early "claims" the cycle (records it + advances `lastNudgeAt`),
 so the scheduler then skips them — mirroring ayah's `/today`. The rotation only
 advances when the user taps «تواصلت ✅» (sets `lastContactedAt = now`), which
-naturally moves that person to the back; «تخطّي» and «فكّرني بعدين» never mark
+naturally moves that person to the back; «تخطّي» and «ذكّرني لاحقًا» never mark
 contacted, so the same person stays next.
 
 `/list` is an interactive browser, not static text: it renders the circle

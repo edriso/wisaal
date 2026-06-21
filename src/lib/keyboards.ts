@@ -107,7 +107,7 @@ export const FORGET_CONFIRM = 'tw:forget:yes';
 export const FORGET_CANCEL = 'tw:forget:no';
 
 /**
- * The action buttons under every nudge: «تواصلت» / «فكّرني بعدين» / «تخطّي».
+ * The action buttons under every nudge: «تواصلت» / «ذكّرني لاحقًا» / «تخطّي».
  * The personId rides in the callback data so the handler updates the right
  * relative without re-reading the rotation.
  */

@@ -237,6 +237,12 @@ describe('/add', () => {
     expect(h.addPerson).toHaveBeenCalledTimes(1);
     expect(h.addPerson).toHaveBeenCalledWith(1, 'خالد', null, 7);
   });
+
+  it('refuses an over-long name instead of failing the insert silently', async () => {
+    await bot.handleUpdate(textUpdate('/add ' + 'ا'.repeat(200)));
+    expect(h.addPerson).not.toHaveBeenCalled();
+    expect(sends().length).toBe(1); // the gentle "too long" reply
+  });
 });
 
 describe('«من أصِل؟» guide', () => {

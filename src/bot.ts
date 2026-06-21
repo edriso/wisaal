@@ -132,6 +132,34 @@ function parsePersonInput(text: string): { name: string; relation: string | null
   return { name: parts.slice(1).join(' '), relation: parts[0] };
 }
 
+// Match the schema's column widths (Person.name VarChar(128), relation
+// VarChar(64)) so an over-long name is refused with a warm message instead of
+// failing the insert silently.
+const MAX_NAME_LEN = 128;
+const MAX_RELATION_LEN = 64;
+
+/**
+ * Add a person and acknowledge, guarding the name/relation length first so a
+ * too-long value never hits the database as a silent failure. Shared by the
+ * `/add <name>` command and the pending-input (plain + guided) flow. Returns
+ * whether the person was added (false → a "too long" reply was sent instead).
+ */
+async function addPersonAndAck(
+  ctx: Context,
+  userId: number,
+  name: string,
+  relation: string | null,
+  cadenceDays: number,
+): Promise<boolean> {
+  if (name.length > MAX_NAME_LEN || (relation !== null && relation.length > MAX_RELATION_LEN)) {
+    await ctx.reply(COPY.addTooLong);
+    return false;
+  }
+  await addPerson(userId, name, relation, cadenceDays);
+  await ctx.reply(COPY.addedOne(personLabel(name, relation)));
+  return true;
+}
+
 // ─── Nudge build + send + claim (shared by /now and the scheduler path) ──
 
 /** Map a User row to the shape buildNudgeView / isUserAvailable need. */
@@ -213,8 +241,7 @@ bot.command('add', async (ctx) => {
     await ctx.reply(COPY.addEmpty);
     return;
   }
-  await addPerson(user.id, parsed.name, parsed.relation, user.defaultCadenceDays);
-  await ctx.reply(COPY.addedOne(personLabel(parsed.name, parsed.relation)));
+  await addPersonAndAck(ctx, user.id, parsed.name, parsed.relation, user.defaultCadenceDays);
 });
 
 // /list: the interactive browser — the circle sorted by who most needs صلة,
@@ -335,7 +362,7 @@ bot.callbackQuery(new RegExp(`^${ACTION_PREFIX}${ACTION_CONTACTED}:(\\d+)$`), as
   await ctx.answerCallbackQuery();
 });
 
-// «فكّرني بعدين ⏰» — snooze about one day.
+// «ذكّرني لاحقًا ⏰» — snooze about one day.
 bot.callbackQuery(new RegExp(`^${ACTION_PREFIX}${ACTION_SNOOZE}:(\\d+)$`), async (ctx) => {
   const user = await userFor(ctx);
   if (!user) {
@@ -701,8 +728,7 @@ bot.on('message:text', async (ctx) => {
     relation = parsed.relation;
   }
   const cadenceDays = pending.cadenceDays ?? user.defaultCadenceDays;
-  await addPerson(user.id, name, relation, cadenceDays);
-  await ctx.reply(COPY.addedOne(personLabel(name, relation)));
+  await addPersonAndAck(ctx, user.id, name, relation, cadenceDays);
 });
 
 // ─── Admin commands ──────────────────────────────────────────────────
