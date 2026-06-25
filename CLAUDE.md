@@ -193,8 +193,12 @@ it with `pnpm db:deploy`.
 - Reminder content (authentic, do not edit): `src/database/reference/reminders.ts`
 - Message wording (Arabic): `src/lib/copy.ts`
 - Nudge build + send + claim: `src/lib/deliver.ts`
-- Database services: `src/database/services/{user,person,nudge}.service.ts`
+- Database services: `src/database/services/{user,person,nudge,stats}.service.ts`
 - Commands + callbacks: `src/bot.ts`
+- Admin commands (gated by `isAdmin`, replies in English, NOT in the public
+  `setMyCommands` menu): `/admin_help` (lists them), `/admin_stats`
+  (subscriber counts via `getAdminStats` in `stats.service.ts`), `/admin_health`,
+  `/admin_send`. Adding one? Also add its line to `/admin_help` and the README.
 - Inline keyboards + callback-data prefixes: `src/lib/keyboards.ts`
 - Bare-text pending input (the `/add` name; `PendingAdd` payload): `src/lib/pending.ts`
 - «من أصِل؟» guide categories (`GUIDE_CATEGORIES`): `src/lib/keyboards.ts`

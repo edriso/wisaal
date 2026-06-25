@@ -10,6 +10,7 @@ export type { User, Person, NudgeLog } from './generated/prisma/client';
 export * from './services/user.service';
 export * from './services/person.service';
 export * from './services/nudge.service';
+export * from './services/stats.service';
 
 // Reference data
 export * from './reference/reminders';

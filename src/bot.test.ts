@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
   logAction: vi.fn(),
   updateSettings: vi.fn(),
   buildNudgeView: vi.fn(),
+  getAdminStats: vi.fn(),
 }));
 
 vi.mock('./config', () => ({
@@ -47,6 +48,7 @@ vi.mock('./database', () => ({
   claimNudge: h.claimNudge,
   logAction: h.logAction,
   updateSettings: h.updateSettings,
+  getAdminStats: h.getAdminStats,
 }));
 vi.mock('./lib/deliver', () => ({ buildNudgeView: h.buildNudgeView }));
 vi.mock('./scheduler', () => ({ runNudgeOnce: vi.fn() }));
@@ -489,5 +491,25 @@ describe('parsePersonInput', () => {
   });
   it('rejects empty / whitespace', () => {
     expect(parsePersonInput('   ')).toBeNull();
+  });
+});
+
+describe('admin command gate', () => {
+  // The config mock sets adminTelegramId: null, so isAdmin denies everyone. A
+  // gated admin command must NOT run its body: /admin_stats must never query.
+  // (The unmatched command then falls through to the generic text fallback, so
+  // a reply does go out — but it is the fallback, never the stats output.)
+  it('/admin_stats never queries the database when no admin is set', async () => {
+    await bot.handleUpdate(textUpdate('/admin_stats'));
+    expect(h.getAdminStats).not.toHaveBeenCalled();
+    // No stats body leaked out; only the generic fallback reply.
+    const leaked = sends().find((c) => String(c.payload.text).startsWith('Stats'));
+    expect(leaked).toBeUndefined();
+  });
+
+  it('/admin_help emits no admin list when no admin is set', async () => {
+    await bot.handleUpdate(textUpdate('/admin_help'));
+    const leaked = sends().find((c) => String(c.payload.text).startsWith('Admin commands'));
+    expect(leaked).toBeUndefined();
   });
 });

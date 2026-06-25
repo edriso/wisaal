@@ -69,8 +69,10 @@ remove them. Long circles paginate eight at a time.
 | `/forget`   | Wipe ALL your data (confirm first)                 |
 | `/help`     | Show the command list                              |
 
-Admin-only (set `ADMIN_TELEGRAM_ID`): `/admin_health`, `/admin_send` (fire one
-nudge batch by hand, the same path the cron uses).
+Admin-only (set `ADMIN_TELEGRAM_ID`): `/admin_help` (list the admin commands),
+`/admin_stats` (subscriber counts: total/active/paused/blocked, plus relatives),
+`/admin_health` (uptime + server time), `/admin_send` (fire one nudge batch by
+hand, the same path the cron uses).
 
 ## Get a bot token
 

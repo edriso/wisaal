@@ -13,6 +13,7 @@ import {
   setPersonCadence,
   claimNudge,
   logAction,
+  getAdminStats,
   type User,
   type RotationPerson,
 } from './database';
@@ -759,6 +760,40 @@ bot.command('admin_send', async (ctx) => {
   }
   await ctx.reply(
     `Nudge run done.\nDue: ${stats.due}\nSent: ${stats.sent}\nSkipped: ${stats.skipped}\nFailed: ${stats.failed}`,
+  );
+});
+
+// /admin_stats: a quick glance at the bot's reach. "Active" is who we actually
+// nudge (not paused, not blocked), so the sub-counts need not sum to the total.
+bot.command('admin_stats', async (ctx) => {
+  if (!isAdmin(ctx)) return;
+  const stats = await getAdminStats();
+  await ctx.reply(
+    [
+      'Stats',
+      '-----',
+      `Users (total):   ${stats.totalUsers}`,
+      `  active:        ${stats.activeUsers}`,
+      `  paused:        ${stats.pausedUsers}`,
+      `  blocked:       ${stats.blockedUsers}`,
+      `Relatives:       ${stats.totalPeople}`,
+    ].join('\n'),
+  );
+});
+
+// /admin_help: list every admin command. Kept in lockstep with the handlers
+// above and the setMyCommands list — if you add an admin command, add it here.
+bot.command('admin_help', async (ctx) => {
+  if (!isAdmin(ctx)) return;
+  await ctx.reply(
+    [
+      'Admin commands',
+      '--------------',
+      '/admin_help    - this list',
+      '/admin_stats   - subscriber counts (total/active/paused/blocked) + relatives',
+      '/admin_health  - uptime and current server time',
+      '/admin_send    - run the nudge batch now (the same path the cron uses)',
+    ].join('\n'),
   );
 });
 
