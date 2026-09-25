@@ -68,6 +68,7 @@ jobs:
             set -e
             cd /opt/bots/telegram/wisaal && git pull
             cd /opt/bots
+            docker builder prune -af
             docker image prune -f
             docker compose run --rm --build wisaal-migrate
             docker compose up -d --build wisaal
